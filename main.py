@@ -25,13 +25,13 @@ from pyauthskin.security import pwd_context
 from pyauthskin import keystore
 
 # --- Config and Paths ---
-from config import BASE_URL, HOST, PORT, DATA_DIR
+from config import BASE_URL, HOST, PORT, DATA_DIR, BASE_DIR # Import BASE_DIR
 
 # --- Pre-startup Directory Creation ---
 # Ensure all necessary data directories exist before the app is created.
 # This prevents errors when mounting static files.
 (DATA_DIR / "static" / "skins").mkdir(parents=True, exist_ok=True)
-(DATA_DIR / "templates").mkdir(parents=True, exist_ok=True)
+(BASE_DIR / "site").mkdir(parents=True, exist_ok=True) # Ensure site directory exists
 
 # --- Lifespan manager for startup events ---
 @asynccontextmanager
@@ -94,7 +94,7 @@ def generate_and_load_keys():
 
 # --- Mount static files & Setup templates ---
 app.mount("/static", StaticFiles(directory=DATA_DIR / "static"), name="static")
-templates = Jinja2Templates(directory=DATA_DIR / "templates")
+templates = Jinja2Templates(directory=BASE_DIR / "site") # Update templates path
 
 # --- Include the auth router for the game client ---
 app.include_router(auth_router)
