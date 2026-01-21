@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+tortoise-orm
+aiosqlite
+jinja2
+pillow
+python-multipart
+passlib
+itsdangerous
+argon2-cffi
+cryptography

@@ -1,0 +1,26 @@
+# Python virtual environment
+plavenv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database file
+database.db
+database.db-shm
+database.db-wal
+
+# RSA keys (Sensitive information, should not be in version control)
+private.key
+public.pem
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# Static files uploaded by users (skins)
+# You might want to track this folder if you have default skins,
+# but typically user-generated content is ignored.
+static/skins/

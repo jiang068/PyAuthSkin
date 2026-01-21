@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MC Skin Server Manager</title>
+    <style>
+        body { font-family: sans-serif; }
+        .skin-gallery { display: flex; flex-wrap: wrap; gap: 20px; }
+        .skin-card { border: 1px solid #ccc; padding: 10px; text-align: center; }
+        .skin-card img { width: 128px; height: 128px; image-rendering: pixelated; }
+        .active-skin { border-color: #4CAF50; border-width: 2px; }
+    </style>
+</head>
+<body>
+    <h1>Welcome, {{ user.username }}!</h1>
+    <p><a href="/logout">Logout</a></p>
+    
+    <h2>My Skins</h2>
+    <div class="skin-gallery">
+        {% for skin in skins %}
+        <div class="skin-card {% if skin.is_active_skin %}active-skin{% endif %}">
+            <img src="/static/skins/{{ skin.texture.hash }}_avatar.png" alt="{{ skin.display_name }}">
+            <p>{{ skin.display_name }}</p>
+            {% if not skin.is_active_skin %}
+            <form action="/manager/set_active/{{ skin.id }}" method="post" style="display:inline;">
+                <button type="submit">Set as Active</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <hr>
+
+    <h2>Upload New Skin</h2>
+    <form action="/manager/upload" method="post" enctype="multipart/form-data">
+        <label for="display_name">Skin Name:</label>
+        <input type="text" id="display_name" name="display_name" required><br><br>
+        <label for="file">Skin File (.png):</label>
+        <input type="file" name="file" accept=".png" required><br><br>
+        <input type="submit" value="Upload">
+    </form>
+
+</body>
+</html>
