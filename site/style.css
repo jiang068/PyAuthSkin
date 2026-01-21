@@ -33,10 +33,12 @@ body {
 
 /* PJAX 容器平滑过渡 */
 #pjax-container {
-    transition: opacity 0.15s ease-out;
+    transition: opacity 0.1s ease-out, filter 0.1s ease-out;
 }
 .pjax-loading {
-    opacity: 0;
+    opacity: 0.6;
+    filter: blur(1px);
+    pointer-events: none;
 }
 
 .header-shell {
@@ -50,7 +52,7 @@ body {
     border-radius: 1.5rem;
     border: 1px solid var(--border-color);
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .avatar-box {
@@ -70,7 +72,9 @@ body {
     border-radius: 0.75rem;
     color: var(--text-main);
     outline: none;
+    transition: border-color 0.2s;
 }
+.input-field:focus { border-color: var(--emerald-primary); }
 
 .btn-base {
     display: inline-flex;
@@ -83,7 +87,7 @@ body {
     border: none;
 }
 .btn-emerald { background: var(--emerald-primary); color: white; }
-.btn-emerald:hover { background: var(--emerald-hover); }
+.btn-emerald:hover { background: var(--emerald-hover); transform: translateY(-1px); }
 
 .label-caps {
     font-size: 0.7rem;

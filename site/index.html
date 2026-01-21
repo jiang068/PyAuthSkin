@@ -14,9 +14,9 @@
 <script type="importmap">
 {
   "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }
 </script>
@@ -57,8 +57,8 @@
                         <a href="/manager" class="block w-full text-center py-4 mt-6 btn-base btn-emerald">Enter Dashboard</a>
                     </div>
                 {% else %}
-                    <a href="/register" class="px-10 py-4 btn-base btn-emerald text-lg">Get Started Free</a>
-                    <a href="/login" class="px-10 py-4 btn-base border border-slate-200 dark:border-slate-700 text-lg text-slate-600 dark:text-slate-300 font-bold">Sign In</a>
+                    <a href="/register" class="px-10 py-4 btn-base btn-emerald text-lg shadow-xl shadow-emerald-500/20">Get Started Free</a>
+                    <a href="/login" class="px-10 py-4 btn-base border border-slate-200 dark:border-slate-700 text-lg text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800">Sign In</a>
                 {% endif %}
             </div>
         </main>
@@ -74,27 +74,21 @@
             const newContent = doc.getElementById('pjax-container');
             if (newContent) {
                 pjaxContainer.classList.add('pjax-loading');
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     pjaxContainer.innerHTML = newContent.innerHTML;
                     document.title = doc.title;
                     if (pushState) window.history.pushState({ url }, doc.title, url);
-                    pjaxContainer.classList.remove('pjax-loading');
-                    // 重新绑定脚本（如果有的话）
-                    pjaxContainer.querySelectorAll('script').forEach(s => {
-                        const ns = document.createElement('script');
-                        Array.from(s.attributes).forEach(a => ns.setAttribute(a.name, a.value));
-                        ns.appendChild(document.createTextNode(s.innerHTML));
-                        s.parentNode.replaceChild(ns, s);
+                    requestAnimationFrame(() => {
+                        pjaxContainer.classList.remove('pjax-loading');
                     });
-                }, 150);
+                });
             } else window.location.href = url;
         }
 
         async function loadPage(url, pushState = true) {
             try {
                 const res = await fetch(url);
-                const html = await res.text();
-                updateDOM(html, res.url, pushState);
+                updateDOM(await res.text(), res.url, pushState);
             } catch (e) { window.location.href = url; }
         }
 
@@ -111,6 +105,7 @@
             const f = e.target;
             if (f.origin === window.location.origin && f.enctype !== 'multipart/form-data') {
                 e.preventDefault();
+                pjaxContainer.classList.add('pjax-loading');
                 try {
                     const res = await fetch(f.action, {
                         method: f.method,
@@ -118,7 +113,6 @@
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                     });
                     const html = await res.text();
-                    // 关键：直接解析 fetch 的响应，因为它已经包含了重定向后的内容
                     updateDOM(html, res.url, true);
                 } catch (err) { window.location.reload(); }
             }
