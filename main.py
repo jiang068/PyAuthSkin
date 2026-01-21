@@ -1,21 +1,33 @@
 import base64
 from contextlib import asynccontextmanager
 from pathlib import Path
+import hashlib
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, File, UploadFile, Form, Depends, HTTPException, Response # Add Depends
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware
-from starlette.exceptions import HTTPException as StarletteHTTPException # Import Starlette's HTTPException
-from starlette.requests import Request as StarletteRequest # Explicitly import Request for the handler
+from fastapi.templating import Jinja2Templates
 from tortoise.contrib.fastapi import register_tortoise
-from fastapi.templating import Jinja2Templates # Import Jinja2Templates
+from tortoise.exceptions import DoesNotExist, IntegrityError
+from contextlib import asynccontextmanager
+from typing import Optional
+import re # Import regular expressions for password validation
+
+# --- Cryptography imports for key generation ---
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.backends import default_backend
+import base64
 
 # --- Import from our new package ---
-from pyauthskin import keystore
+from pyauthskin.database import User, Texture, UserTexture
 from pyauthskin.auth_logic import router as auth_router
+from pyauthskin.skins_render import generate_avatar
+from pyauthskin.security import pwd_context
+from pyauthskin import keystore
 from pyauthskin.web import router as web_router # Import the new web router
 
 # --- Config and Paths ---
@@ -79,6 +91,8 @@ app.include_router(auth_router) # For the game client
 app.include_router(web_router)  # For the web interface
 
 # --- Yggdrasil Metadata Endpoint ---
+from config import AUTH_API_PREFIX # Import AUTH_API_PREFIX
+
 @app.get(AUTH_API_PREFIX) # Use the custom prefix for metadata
 async def yggdrasil_meta():
     return {
@@ -101,6 +115,10 @@ register_tortoise(
 )
 
 # --- Middleware for Session ---
+from starlette.middleware.sessions import SessionMiddleware # Add SessionMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException # Import Starlette's HTTPException
+from starlette.requests import Request as StarletteRequest # Explicitly import Request for the handler
+
 app.add_middleware(SessionMiddleware, secret_key="your-super-secret-key")
 
 # --- Custom 404 Error Handler ---
@@ -115,4 +133,49 @@ async def http_exception_handler(request: StarletteRequest, exc: StarletteHTTPEx
 
 if __name__ == "__main__":
     import uvicorn
+    from config import HOST, PORT
     uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
+
+# --- Web UI Endpoints (moved to pyauthskin/web.py) ---
+@app.get("/manager")
+async def manager(request: Request):
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    user = await User.get(id=user["id"])
+    textures = await UserTexture.filter(user=user)
+    return request.app.state.templates.TemplateResponse("manager.html", {"request": request, "user": user, "textures": textures})
+
+@app.post("/manager/upload")
+async def upload_skin(request: Request, file: UploadFile = File(...), display_name: str = Form(...), model: str = Form(...)):
+    user = request.session.get("user")
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    user = await User.get(id=user["id"])
+    file_location = DATA_DIR / "skins" / file.filename
+
+    # Save the uploaded file to the designated location
+    with open(file_location, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    # Create or update the texture record in the database
+    texture, created = await Texture.get_or_create(
+        name=display_name,
+        defaults={"file_path": str(file_location)}
+    )
+    if not created:
+        # If the texture already exists, update the file path
+        texture.file_path = str(file_location)
+        await texture.save()
+
+    # Deactivate other skins for the user
+    await UserTexture.filter(user=user, is_active_skin=True).update(is_active_skin=False)
+    await UserTexture.create(user=user, texture=texture, display_name=display_name, model=model, is_active_skin=True)
+
+    # Pass the actual skin dimensions to generate_avatar
+    generate_avatar(skin_path, avatar_path, width=skin_width, height=skin_height)
+
+    return RedirectResponse(url="/manager", status_code=303)

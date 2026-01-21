@@ -13,6 +13,8 @@ class Texture(Model):
     hash = fields.CharField(max_length=255, unique=True)
     path = fields.CharField(max_length=255)
     uploader = fields.ForeignKeyField('models.User', related_name='uploaded_textures', null=True)
+    width = fields.IntField(default=64)
+    height = fields.IntField(default=64)
 
 class UserTexture(Model):
     id = fields.IntField(pk=True)

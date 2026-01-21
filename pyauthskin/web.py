@@ -4,6 +4,7 @@ import hashlib
 import re
 import uuid
 from typing import Optional
+from pathlib import Path # Add missing import
 
 from fastapi import (APIRouter, Depends, File, Form, Request,
                      Response, UploadFile)
@@ -90,8 +91,10 @@ async def manager(request: Request, user: User = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login")
     
+    # Fetch user skins and prefetch their associated texture (which contains width/height)
     user_skins = await UserTexture.filter(user=user).prefetch_related('texture')
     return templates.TemplateResponse("manager.html", {"request": request, "user": user, "skins": user_skins})
+
 
 @router.post("/manager/upload")
 async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...), model: str = Form("classic"), user: User = Depends(get_current_user)):
@@ -109,18 +112,26 @@ async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...
     with open(skin_path, "wb") as f:
         f.write(contents)
 
+    # Get image dimensions using Pillow within this function's scope
+    from PIL import Image # Import Image here to avoid circular dependency if skins_render also imports main
+    with Image.open(skin_path) as img:
+        skin_width, skin_height = img.size
+
     texture = await Texture.filter(hash=file_hash).first()
     if not texture:
         texture = await Texture.create(
             hash=file_hash,
             path=str(skin_path),
-            uploader=user
+            uploader=user,
+            width=skin_width, # Store actual width
+            height=skin_height # Store actual height
         )
     
     await UserTexture.filter(user=user, is_active_skin=True).update(is_active_skin=False)
     await UserTexture.create(user=user, texture=texture, display_name=display_name, model=model, is_active_skin=True)
 
-    generate_avatar(skin_path, avatar_path)
+    # Pass the actual skin dimensions to generate_avatar
+    generate_avatar(skin_path, avatar_path, width=skin_width, height=skin_height)
 
     return RedirectResponse(url="/manager", status_code=303)
 
@@ -132,4 +143,44 @@ async def set_active_skin(skin_id: int, user: User = Depends(get_current_user)):
     await UserTexture.filter(user=user, is_active_skin=True).update(is_active_skin=False)
     await UserTexture.filter(id=skin_id, user=user).update(is_active_skin=True)
     
+    return RedirectResponse(url="/manager", status_code=303)
+
+@router.post("/manager/delete_skin/{skin_id}")
+async def delete_skin(skin_id: int, user: User = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=403)
+
+    # Find the UserTexture entry
+    user_texture = await UserTexture.filter(user=user, id=skin_id).first()
+    if not user_texture:
+        raise HTTPException(status_code=404, detail="Skin not found or not owned by user")
+
+    # Get the associated Texture object
+    texture = await user_texture.texture
+
+    # If this was the active skin, deactivate it (or set a default if available)
+    if user_texture.is_active_skin:
+        # For simplicity, we'll just deactivate it. User will have no active skin.
+        # A more complex system might assign a default skin.
+        pass # No change needed here, as deactivation is handled by setting a new active skin.
+
+    # Delete the UserTexture entry
+    await user_texture.delete()
+
+    # Check if this texture is still used by any other UserTexture entry.
+    # If not, delete the physical file to save space.
+    # We need to explicitly check for other UserTexture entries that reference this specific Texture.
+    other_user_textures_referencing_this_texture = await UserTexture.filter(texture=texture).exists()
+    
+    if not other_user_textures_referencing_this_texture:
+        # No other UserTexture entries are using this Texture, so we can delete the physical file.
+        skin_file_path = Path(texture.path)
+        if skin_file_path.exists():
+            skin_file_path.unlink()
+            # Also delete the avatar if it exists
+            avatar_file_path = skin_file_path.parent / f"{skin_file_path.stem}_avatar.png"
+            if avatar_file_path.exists():
+                avatar_file_path.unlink()
+        await texture.delete() # Delete the Texture entry itself, as it's no longer referenced.
+
     return RedirectResponse(url="/manager", status_code=303)

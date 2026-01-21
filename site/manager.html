@@ -24,11 +24,17 @@
         <div class="skin-card {% if skin.is_active_skin %}active-skin{% endif %}">
             <img src="/skins/{{ skin.texture.hash }}_avatar.png" alt="{{ skin.display_name }}">
             <p>{{ skin.display_name }}</p>
+            <p class="skin-resolution">{{ skin.texture.width }}x{{ skin.texture.height }} 
+                ({% if skin.model == 'slim' %}Alex{% else %}Steve{% endif %})
+            </p>
             {% if not skin.is_active_skin %}
             <form action="/manager/set_active/{{ skin.id }}" method="post" style="display:inline;">
                 <button type="submit">Set as Active</button>
             </form>
             {% endif %}
+            <form action="/manager/delete_skin/{{ skin.id }}" method="post" style="display:inline; margin-left: 10px;" onsubmit="return confirm('Are you sure you want to delete this skin?');">
+                <button type="submit" style="background-color: #dc3545; color: white;">Delete</button>
+            </form>
         </div>
         {% endfor %}
     </div>

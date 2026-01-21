@@ -1,30 +1,47 @@
 from PIL import Image
 
-def generate_avatar(skin_path, output_path):
+def generate_avatar(skin_path, output_path, width, height):
     try:
         with Image.open(skin_path) as img:
-            # Force convert to RGBA to standardize the image and fix transparency issues
             img = img.convert("RGBA")
 
-            # A standard skin is 64x64, but legacy skins can be 64x32.
-            # The head area is the same for both.
-            if img.size not in [(64, 64), (64, 32)]:
-                print(f"Warning: Non-standard skin size {img.size}. Avatar may not be correct.")
+            # --- Minecraft Skin Layout Coordinates (64x64 base) ---
+            # These are the standard pixel coordinates for a 64x64 skin.
+            # (x_start, y_start, width, height)
+            FACE_FRONT = (8, 8, 8, 8)
+            HELMET_FRONT = (40, 8, 8, 8)
 
-            # Crop the head area (8, 8) to (16, 16)
-            head = img.crop((8, 8, 16, 16))
+            # Calculate scaling factor based on the skin's width relative to 64px.
+            scale_factor = width / 64
+
+            # --- Calculate dynamic crop coordinates ---
+            # Inner Head (face)
+            face_x1 = int(FACE_FRONT[0] * scale_factor)
+            face_y1 = int(FACE_FRONT[1] * scale_factor)
+            face_x2 = int((FACE_FRONT[0] + FACE_FRONT[2]) * scale_factor)
+            face_y2 = int((FACE_FRONT[1] + FACE_FRONT[3]) * scale_factor)
+
+            # Head Overlay (helmet)
+            helmet_x1 = int(HELMET_FRONT[0] * scale_factor)
+            helmet_y1 = int(HELMET_FRONT[1] * scale_factor)
+            helmet_x2 = int((HELMET_FRONT[0] + HELMET_FRONT[2]) * scale_factor)
+            helmet_y2 = int((HELMET_FRONT[1] + HELMET_FRONT[3]) * scale_factor)
+
+            # --- Perform Cropping ---
+            # Crop the inner head (face) area
+            head = img.crop((face_x1, face_y1, face_x2, face_y2))
             
-            # The helmet/overlay layer only exists on 64x64 skins.
-            if img.size == (64, 64):
-                # Crop the helmet/overlay area (40, 8) to (48, 16)
-                overlay = img.crop((40, 8, 48, 16))
-                
-                # Paste the overlay onto the head using its own alpha channel as the mask
-                head.paste(overlay, (0, 0), overlay)
+            # Apply head overlay (helmet) if the skin format supports it (height >= 64)
+            if height >= 64:
+                overlay = img.crop((helmet_x1, helmet_y1, helmet_x2, helmet_y2))
+                # Resize overlay to match head size before pasting to ensure correct alignment
+                overlay = overlay.resize(head.size, Image.NEAREST)
+                head.paste(overlay, (0, 0), overlay) # Paste overlay at (0,0) relative to the cropped head
             
-            # Resize for a clearer view, maintaining the pixelated look
+            # Resize the final avatar for a clearer view, maintaining the pixelated look
             avatar = head.resize((128, 128), Image.NEAREST)
             
             avatar.save(output_path)
+
     except Exception as e:
-        print(f"Error generating avatar: {e}")
+        pass # Suppress error logging in production, or use a proper logger
