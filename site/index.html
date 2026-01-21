@@ -5,30 +5,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PyAuthSkin | Minecraft Identity</title>
-    <!-- 使用绝对路径 /style.css 确保在任何 URL 下都能找到样式 -->
     <link rel="stylesheet" href="/style.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // 立即执行以防止闪屏
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
         tailwind.config = { darkMode: 'class' };
     </script>
 <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
 </head>
-<body>
+<body class="bg-slate-50 dark:bg-slate-900">
     <header class="fixed top-0 w-full z-50 header-shell h-16">
         <div class="max-w-6xl mx-auto px-6 h-full flex items-center justify-between">
             <a href="/" class="flex items-center gap-2 group">
                 <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold group-hover:rotate-6 transition-transform">P</div>
-                <span class="font-bold text-lg tracking-tight">PyAuthSkin</span>
+                <span class="font-bold text-lg tracking-tight text-slate-900 dark:text-white">PyAuthSkin</span>
             </a>
             <div class="flex items-center gap-4">
                 <button onclick="toggleTheme()" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -48,71 +46,81 @@
         </div>
     </header>
 
-    <div id="pjax-container" class="pt-24 pb-12 animate-fade">
+    <div id="pjax-container" class="pt-24 pb-12">
         <main class="max-w-4xl mx-auto px-6 text-center py-20">
             <h1 class="text-5xl md:text-7xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400">Your Skins, <br/>Everywhere.</h1>
             <p class="text-lg text-slate-500 dark:text-slate-400 mb-10 max-w-xl mx-auto">A clean, fast, and secure private authentication server.</p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
                 {% if user %}
                     <div class="p-8 card-base text-left max-w-md mx-auto w-full">
-                        <h3 class="font-bold text-xl mb-1">Welcome, {{ user.username }}</h3>
+                        <h3 class="font-bold text-xl mb-1 text-slate-900 dark:text-white">Welcome, {{ user.username }}</h3>
                         <a href="/manager" class="block w-full text-center py-4 mt-6 btn-base btn-emerald">Enter Dashboard</a>
                     </div>
                 {% else %}
                     <a href="/register" class="px-10 py-4 btn-base btn-emerald text-lg">Get Started Free</a>
-                    <a href="/login" class="px-10 py-4 btn-base border border-slate-200 dark:border-slate-700 text-lg">Sign In</a>
+                    <a href="/login" class="px-10 py-4 btn-base border border-slate-200 dark:border-slate-700 text-lg text-slate-600 dark:text-slate-300 font-bold">Sign In</a>
                 {% endif %}
             </div>
         </main>
     </div>
 
-    <!-- 底部统一脚本 -->
-    <script>
-        function toggleTheme() {
-            document.documentElement.classList.toggle('dark');
-            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-        }
-        // PJAX 逻辑确保页面内无刷新跳转
+    <script id="pjax-logic">
+        function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'; }
+        
         const pjaxContainer = document.getElementById('pjax-container');
-        async function loadPage(url, pushState = true) {
-            pjaxContainer.classList.add('pjax-loading');
-            try {
-                const res = await fetch(url);
-                const html = await res.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const newContent = doc.getElementById('pjax-container');
-                if (newContent) {
+        
+        async function updateDOM(html, url, pushState = true) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const newContent = doc.getElementById('pjax-container');
+            if (newContent) {
+                pjaxContainer.classList.add('pjax-loading');
+                setTimeout(() => {
                     pjaxContainer.innerHTML = newContent.innerHTML;
                     document.title = doc.title;
                     if (pushState) window.history.pushState({ url }, doc.title, url);
-                    window.scrollTo(0, 0);
-                    // 重新执行新内容中的脚本
+                    pjaxContainer.classList.remove('pjax-loading');
+                    // 重新绑定脚本（如果有的话）
                     pjaxContainer.querySelectorAll('script').forEach(s => {
                         const ns = document.createElement('script');
                         Array.from(s.attributes).forEach(a => ns.setAttribute(a.name, a.value));
                         ns.appendChild(document.createTextNode(s.innerHTML));
                         s.parentNode.replaceChild(ns, s);
                     });
-                } else window.location.href = url;
-            } catch (e) { window.location.href = url; } finally { pjaxContainer.classList.remove('pjax-loading'); }
+                }, 150);
+            } else window.location.href = url;
         }
+
+        async function loadPage(url, pushState = true) {
+            try {
+                const res = await fetch(url);
+                const html = await res.text();
+                updateDOM(html, res.url, pushState);
+            } catch (e) { window.location.href = url; }
+        }
+
         document.addEventListener('click', e => {
             const a = e.target.closest('a');
-            if (a && a.href && a.origin === window.location.origin && !a.hasAttribute('download')) { e.preventDefault(); loadPage(a.href); }
+            if (a && a.href && a.origin === window.location.origin && !a.hasAttribute('download') && !a.target) {
+                e.preventDefault(); loadPage(a.href);
+            }
         });
+
         window.onpopstate = () => loadPage(window.location.pathname, false);
+
         document.addEventListener('submit', async e => {
             const f = e.target;
             if (f.origin === window.location.origin && f.enctype !== 'multipart/form-data') {
-                e.preventDefault(); pjaxContainer.classList.add('pjax-loading');
+                e.preventDefault();
                 try {
-                    const res = await fetch(f.action, { method: f.method, body: new URLSearchParams(new FormData(f)), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-                    if (res.redirected) loadPage(res.url);
-                    else {
-                        const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-                        pjaxContainer.innerHTML = doc.getElementById('pjax-container').innerHTML;
-                    }
-                } catch (err) { window.location.reload(); } finally { pjaxContainer.classList.remove('pjax-loading'); }
+                    const res = await fetch(f.action, {
+                        method: f.method,
+                        body: new URLSearchParams(new FormData(f)),
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+                    });
+                    const html = await res.text();
+                    // 关键：直接解析 fetch 的响应，因为它已经包含了重定向后的内容
+                    updateDOM(html, res.url, true);
+                } catch (err) { window.location.reload(); }
             }
         });
     </script>
