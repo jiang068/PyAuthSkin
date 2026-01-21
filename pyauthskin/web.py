@@ -101,7 +101,8 @@ async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...
     contents = await file.read()
     file_hash = hashlib.sha256(contents).hexdigest()[:8]
     
-    skins_dir = DATA_DIR / "static" / "skins"
+    # Use absolute paths from DATA_DIR for file operations
+    skins_dir = DATA_DIR / "skins"
     skin_path = skins_dir / f"{file_hash}.png"
     avatar_path = skins_dir / f"{file_hash}_avatar.png"
 

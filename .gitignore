@@ -11,17 +11,7 @@ pyauthskin/__pycache__/
 *.pyd
 
 # Runtime data files inside the 'data' directory
-# Ignore the database files
-data/database.db
-data/database.db-shm
-data/database.db-wal
-
-# Ignore RSA keys (Sensitive information)
-data/private.key
-data/public.pem
-
-# Ignore user-uploaded skins
-data/static/skins/
+data/
 
 # IDE-specific files
 .vscode/

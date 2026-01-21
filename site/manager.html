@@ -22,7 +22,7 @@
     <div class="skin-gallery">
         {% for skin in skins %}
         <div class="skin-card {% if skin.is_active_skin %}active-skin{% endif %}">
-            <img src="/static/skins/{{ skin.texture.hash }}_avatar.png" alt="{{ skin.display_name }}">
+            <img src="/skins/{{ skin.texture.hash }}_avatar.png" alt="{{ skin.display_name }}">
             <p>{{ skin.display_name }}</p>
             {% if not skin.is_active_skin %}
             <form action="/manager/set_active/{{ skin.id }}" method="post" style="display:inline;">

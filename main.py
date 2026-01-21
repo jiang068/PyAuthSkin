@@ -19,8 +19,10 @@ from pyauthskin.web import router as web_router # Import the new web router
 from config import BASE_DIR, DATA_DIR, HOST, PORT
 
 # --- Pre-startup Directory Creation ---
-(DATA_DIR / "static" / "skins").mkdir(parents=True, exist_ok=True)
-(BASE_DIR / "site").mkdir(parents=True, exist_ok=True)
+# Ensure all necessary data directories exist before the app is created.
+# This prevents errors when mounting static files.
+(DATA_DIR / "skins").mkdir(parents=True, exist_ok=True)
+(BASE_DIR / "site").mkdir(parents=True, exist_ok=True) # Ensure site directory exists
 
 # --- Lifespan manager for startup events ---
 @asynccontextmanager
@@ -63,7 +65,7 @@ def generate_and_load_keys():
         keystore.SIGNATURE_PUBLIC_KEY_B64 = f.read()
 
 # --- Mount static files ---
-app.mount("/static", StaticFiles(directory=DATA_DIR / "static"), name="static")
+app.mount("/skins", StaticFiles(directory=DATA_DIR / "skins"), name="skins")
 
 # --- Include Routers ---
 app.include_router(auth_router) # For the game client

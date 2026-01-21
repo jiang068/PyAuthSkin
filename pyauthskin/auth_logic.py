@@ -36,16 +36,14 @@ async def get_user_profile_data(uuid: str):
         textures_data = {}
         if active_skin_relation:
             active_skin = active_skin_relation.texture
-            skin_model = active_skin_relation.model # This will be 'steve' or 'slim'
+            skin_model = active_skin_relation.model # This will be 'classic' or 'slim'
             
             skin_metadata = {}
-            # According to the official Yggdrasil spec, the 'model' key should only
-            # exist if the model is slim. It should be absent for the classic (steve) model.
             if skin_model == 'slim':
                 skin_metadata['model'] = 'slim'
 
             textures_data["SKIN"] = {
-                "url": f"{BASE_URL}/static/skins/{active_skin.hash}.png",
+                "url": f"{BASE_URL}/skins/{active_skin.hash}.png", # Update URL path
                 "metadata": skin_metadata
             }
 
