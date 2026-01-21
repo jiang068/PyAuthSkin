@@ -16,3 +16,7 @@ PORT = 80
 # Full base URL for the server, used for generating skin links
 # Note: If your server is on the public internet, replace HOST with your domain or public IP
 BASE_URL = f"http://{HOST}" if PORT == 80 else f"http://{HOST}:{PORT}"
+
+# Custom prefix for the Yggdrasil authentication API
+# Example: "/api/pyauthskin" or "/auth"
+AUTH_API_PREFIX = "/api/pyauthskin"

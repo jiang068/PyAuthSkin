@@ -9,9 +9,10 @@ from typing import Dict, Any
 from . import keystore
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from config import AUTH_API_PREFIX # Import the custom prefix
 
 # Define the router with a common base prefix
-router = APIRouter(prefix="/api/yggdrasil", tags=["Yggdrasil"])
+router = APIRouter(prefix=AUTH_API_PREFIX, tags=["Yggdrasil"])
 
 def sign_data(data: bytes) -> bytes:
     """Signs the given data with the server's private key."""

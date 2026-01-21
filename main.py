@@ -19,7 +19,7 @@ from pyauthskin.auth_logic import router as auth_router
 from pyauthskin.web import router as web_router # Import the new web router
 
 # --- Config and Paths ---
-from config import BASE_DIR, DATA_DIR, HOST, PORT
+from config import BASE_DIR, DATA_DIR, HOST, PORT, AUTH_API_PREFIX
 
 # --- Pre-startup Directory Creation ---
 # Ensure all necessary data directories exist before the app is created.
@@ -79,7 +79,7 @@ app.include_router(auth_router) # For the game client
 app.include_router(web_router)  # For the web interface
 
 # --- Yggdrasil Metadata Endpoint ---
-@app.get("/api/yggdrasil")
+@app.get(AUTH_API_PREFIX) # Use the custom prefix for metadata
 async def yggdrasil_meta():
     return {
         "meta": {
