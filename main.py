@@ -8,7 +8,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException # Import Starlette's HTTPException
+from starlette.requests import Request as StarletteRequest # Explicitly import Request for the handler
 from tortoise.contrib.fastapi import register_tortoise
+from fastapi.templating import Jinja2Templates # Import Jinja2Templates
 
 # --- Import from our new package ---
 from pyauthskin import keystore
@@ -67,6 +70,10 @@ def generate_and_load_keys():
 # --- Mount static files ---
 app.mount("/skins", StaticFiles(directory=DATA_DIR / "skins"), name="skins")
 
+# --- Initialize Templates and attach to app state ---
+templates = Jinja2Templates(directory=BASE_DIR / "site")
+app.state.templates = templates # Attach templates to app state
+
 # --- Include Routers ---
 app.include_router(auth_router) # For the game client
 app.include_router(web_router)  # For the web interface
@@ -95,6 +102,16 @@ register_tortoise(
 
 # --- Middleware for Session ---
 app.add_middleware(SessionMiddleware, secret_key="your-super-secret-key")
+
+# --- Custom 404 Error Handler ---
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: StarletteRequest, exc: StarletteHTTPException):
+    if exc.status_code == 404:
+        # Access templates from app state
+        return request.app.state.templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+    # For other HTTP exceptions, let FastAPI's default handler take over
+    return await request.app.default_exception_handler(request, exc)
+
 
 if __name__ == "__main__":
     import uvicorn
