@@ -12,17 +12,30 @@
         tailwind.config = { darkMode: 'class' };
     </script>
 </head>
-<body>
+<body class="bg-slate-50 dark:bg-slate-900">
     <header class="fixed top-0 w-full z-50 header-shell h-16">
         <div class="max-w-6xl mx-auto px-6 h-full flex items-center justify-between">
             <a href="/" class="flex items-center gap-2 group">
                 <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold group-hover:rotate-6 transition-transform">P</div>
-                <span class="font-bold text-lg tracking-tight">PyAuthSkin</span>
+                <span class="font-bold text-lg tracking-tight text-slate-900 dark:text-white">PyAuthSkin</span>
             </a>
-            <button onclick="toggleTheme()" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                <svg class="hidden dark:block w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
-                <svg class="block dark:hidden w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-            </button>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <svg class="hidden dark:block w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                    <svg class="block dark:hidden w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                </button>
+                <nav class="flex items-center gap-4 border-l border-slate-200 dark:border-slate-700 pl-4">
+                    {% if user %}
+                        <a href="/manager" class="flex items-center gap-2 group">
+                            <span class="text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-500 transition-colors">{{ user.username }}</span>
+                            <svg class="w-4 h-4 text-slate-400 group-hover:text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </a>
+                    {% else %}
+                        <a href="/login" class="text-sm font-medium text-emerald-500">Login</a>
+                        <a href="/register" class="px-4 py-2 btn-base btn-emerald text-sm">Sign Up</a>
+                    {% endif %}
+                </nav>
+            </div>
         </div>
     </header>
 
@@ -30,7 +43,7 @@
         <main class="max-w-md mx-auto px-6 py-12">
             <div class="card-base p-10">
                 <div class="text-center mb-10">
-                    <h2 class="text-3xl font-bold tracking-tight">Welcome back</h2>
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Welcome back</h2>
                     <p class="text-slate-500 mt-2">Enter your credentials to continue</p>
                 </div>
                 {% if error %}<div class="mb-6 p-4 bg-red-50 text-red-600 text-sm rounded-2xl font-medium border border-red-100">{{ error }}</div>{% endif %}
@@ -43,14 +56,12 @@
                         <label class="label-caps">Password</label>
                         <input type="password" name="password" required class="input-field">
                     </div>
-                    <button type="submit" class="w-full py-4 btn-base btn-emerald text-lg mt-4">Sign In</button>
+                    <button type="submit" class="w-full py-4 btn-base btn-emerald text-lg mt-4 shadow-lg shadow-emerald-500/20">Sign In</button>
                 </form>
-                <div class="mt-8 text-center text-sm text-slate-500">New here? <a href="/register" class="text-emerald-500 font-bold hover:underline">Create an account</a></div>
+                <div class="mt-8 text-center text-sm text-slate-500">New here? <a href="/register" class="text-emerald-500 font-bold hover:underline transition-all">Create an account</a></div>
             </div>
         </main>
     </div>
-    <script>
-        function toggleTheme() { document.documentElement.classList.toggle('dark'); localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'; }
-    </script>
+    <script src="/script.js"></script>
 </body>
 </html>
