@@ -20,3 +20,7 @@ BASE_URL = f"http://{HOST}" if PORT == 80 else f"http://{HOST}:{PORT}"
 # Custom prefix for the Yggdrasil authentication API
 # Example: "/api/pyauthskin" or "/auth"
 AUTH_API_PREFIX = "/api/pyauthskin"
+
+# Logging level for Uvicorn and the application
+# Options: "debug", "info", "warning", "error", "critical"
+LOG_LEVEL = "info"

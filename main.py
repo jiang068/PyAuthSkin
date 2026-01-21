@@ -133,8 +133,8 @@ async def http_exception_handler(request: StarletteRequest, exc: StarletteHTTPEx
 
 if __name__ == "__main__":
     import uvicorn
-    from config import HOST, PORT
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
+    from config import HOST, PORT, LOG_LEVEL # Import LOG_LEVEL
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=True, log_level=LOG_LEVEL) # Set log_level
 
 # --- Web UI Endpoints (moved to pyauthskin/web.py) ---
 @app.get("/manager")
