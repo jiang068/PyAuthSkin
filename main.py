@@ -1,45 +1,32 @@
-import os
-import hashlib
-import uuid
-from pathlib import Path
-from fastapi import FastAPI, Request, File, UploadFile, Form, Depends, HTTPException, Response
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from tortoise.contrib.fastapi import register_tortoise
-from tortoise.exceptions import DoesNotExist, IntegrityError
+import base64
 from contextlib import asynccontextmanager
-from typing import Optional
+from pathlib import Path
 
-# --- Cryptography imports for key generation ---
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
-import base64
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+from tortoise.contrib.fastapi import register_tortoise
 
 # --- Import from our new package ---
-from pyauthskin.database import User, Texture, UserTexture
-from pyauthskin.auth_logic import router as auth_router
-from pyauthskin.skins_render import generate_avatar
-from pyauthskin.security import pwd_context
 from pyauthskin import keystore
+from pyauthskin.auth_logic import router as auth_router
+from pyauthskin.web import router as web_router # Import the new web router
 
 # --- Config and Paths ---
-from config import BASE_URL, HOST, PORT, DATA_DIR, BASE_DIR # Import BASE_DIR
+from config import BASE_DIR, DATA_DIR, HOST, PORT
 
 # --- Pre-startup Directory Creation ---
-# Ensure all necessary data directories exist before the app is created.
-# This prevents errors when mounting static files.
 (DATA_DIR / "static" / "skins").mkdir(parents=True, exist_ok=True)
-(BASE_DIR / "site").mkdir(parents=True, exist_ok=True) # Ensure site directory exists
+(BASE_DIR / "site").mkdir(parents=True, exist_ok=True)
 
 # --- Lifespan manager for startup events ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load keys on startup, directories are already created.
     generate_and_load_keys()
     yield
-    # Shutdown logic can go here if needed
 
 app = FastAPI(lifespan=lifespan)
 
@@ -48,9 +35,6 @@ PUBLIC_KEY_PATH = DATA_DIR / "public.pem"
 PRIVATE_KEY_PATH = DATA_DIR / "private.key"
 
 def generate_and_load_keys():
-    """
-    Generates RSA keys if they don't exist, then loads them into the keystore.
-    """
     if not PUBLIC_KEY_PATH.exists() or not PRIVATE_KEY_PATH.exists():
         print("Generating new RSA key pair...")
         private_key_obj = rsa.generate_private_key(
@@ -59,179 +43,57 @@ def generate_and_load_keys():
             backend=default_backend()
         )
         public_key_obj = private_key_obj.public_key()
-
         with open(PRIVATE_KEY_PATH, "wb") as f:
             f.write(private_key_obj.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption()
             ))
-
         with open(PUBLIC_KEY_PATH, "wb") as f:
             f.write(public_key_obj.public_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             ))
     
-    # Load the private key from file into the keystore
     with open(PRIVATE_KEY_PATH, "rb") as f:
         keystore.SIGNING_PRIVATE_KEY = serialization.load_pem_private_key(
-            f.read(),
-            password=None,
-            backend=default_backend()
+            f.read(), password=None, backend=default_backend()
         )
-
-    # Load the raw public key PEM content into the keystore
     with open(PUBLIC_KEY_PATH, "r") as f:
         keystore.SIGNATURE_PUBLIC_KEY_B64 = f.read()
 
-
-# The old @app.on_event is now replaced by the lifespan manager
-# @app.on_event("startup")
-# async def startup_event():
-#     generate_and_load_keys()
-
-
-# --- Mount static files & Setup templates ---
+# --- Mount static files ---
 app.mount("/static", StaticFiles(directory=DATA_DIR / "static"), name="static")
-templates = Jinja2Templates(directory=BASE_DIR / "site") # Update templates path
 
-# --- Include the auth router for the game client ---
-app.include_router(auth_router)
+# --- Include Routers ---
+app.include_router(auth_router) # For the game client
+app.include_router(web_router)  # For the web interface
 
-
-# --- Dependency for getting current user from session cookie ---
-async def get_current_user(request: Request) -> Optional[User]:
-    user_id = request.session.get("user_id")
-    if user_id:
-        try:
-            return await User.get(id=user_id)
-        except DoesNotExist:
-            return None
-    return None
-
-# --- Metadata Endpoints ---
-@app.get("/")
-@app.get("/api/yggdrasil") # Add endpoint for authlib-injector
-async def root():
+# --- Yggdrasil Metadata Endpoint ---
+@app.get("/api/yggdrasil")
+async def yggdrasil_meta():
     return {
         "meta": {
-            "serverName": "PyAuthSkin", # Updated project name
+            "serverName": "PyAuthSkin",
             "implementationName": "PyAuthSkin",
             "implementationVersion": "1.0.0"
         },
-        "skinDomains": [HOST], # Only provide the hostname
-        "signaturePublickey": keystore.SIGNATURE_PUBLIC_KEY_B64 # Use the key from keystore
+        "skinDomains": [HOST],
+        "signaturePublickey": keystore.SIGNATURE_PUBLIC_KEY_B64
     }
-
-# --- Web UI Endpoints ---
-
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
-
-@app.post("/login")
-async def login_form(request: Request, response: Response, username: str = Form(...), password: str = Form(...)):
-    try:
-        user = await User.get(username=username)
-        # No pre-hashing needed for argon2
-        if not pwd_context.verify(password, user.password):
-            raise DoesNotExist
-        request.session["user_id"] = user.id
-        return RedirectResponse(url="/manager", status_code=303)
-    except DoesNotExist:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid username or password"}, status_code=400)
-
-@app.get("/logout")
-async def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse(url="/login", status_code=303)
-
-@app.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
-
-@app.post("/register")
-async def register(request: Request, username: str = Form(...), password: str = Form(...)):
-    # No pre-hashing needed for argon2
-    hashed_password = pwd_context.hash(password)
-    try:
-        # Store UUID without hyphens to match game client requests
-        user_uuid = str(uuid.uuid4()).replace('-', '')
-        user = await User.create(username=username, password=hashed_password, uuid=user_uuid)
-        
-        # Automatically log in after registration
-        request.session["user_id"] = user.id
-        return RedirectResponse(url="/manager", status_code=303)
-    except IntegrityError:
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Username already exists"}, status_code=400)
-
-
-@app.get("/manager", response_class=HTMLResponse)
-async def manager(request: Request, user: User = Depends(get_current_user)):
-    if not user:
-        return RedirectResponse(url="/login")
-    
-    user_skins = await UserTexture.filter(user=user).prefetch_related('texture')
-    return templates.TemplateResponse("manager.html", {"request": request, "user": user, "skins": user_skins})
-
-
-@app.post("/manager/upload")
-async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...), model: str = Form("classic"), user: User = Depends(get_current_user)):
-    if not user:
-        return RedirectResponse(url="/login", status_code=403)
-
-    contents = await file.read()
-    # Truncate the SHA256 hash to the first 8 characters - FIX TYPO
-    file_hash = hashlib.sha256(contents).hexdigest()[:8]
-    
-    # Use absolute paths from DATA_DIR for file operations
-    skins_dir = DATA_DIR / "static" / "skins"
-    skins_dir.mkdir(exist_ok=True)
-    skin_path = skins_dir / f"{file_hash}.png"
-    avatar_path = skins_dir / f"{file_hash}_avatar.png"
-
-    with open(skin_path, "wb") as f:
-        f.write(contents)
-
-    texture, _ = await Texture.get_or_create(hash=file_hash, defaults={"path": str(skin_path), "uploader": user})
-    
-    await UserTexture.filter(user=user, is_active_skin=True).update(is_active_skin=False)
-    await UserTexture.create(user=user, texture=texture, display_name=display_name, model=model, is_active_skin=True)
-
-    generate_avatar(skin_path, avatar_path)
-
-    return RedirectResponse(url="/manager", status_code=303)
-
-@app.post("/manager/set_active/{skin_id}")
-async def set_active_skin(skin_id: int, user: User = Depends(get_current_user)):
-    if not user:
-        return RedirectResponse(url="/login", status_code=403)
-
-    # Deactivate all other skins for the user
-    await UserTexture.filter(user=user, is_active_skin=True).update(is_active_skin=False)
-    
-    # Activate the selected skin
-    await UserTexture.filter(id=skin_id, user=user).update(is_active_skin=True)
-    
-    return RedirectResponse(url="/manager", status_code=303)
-
 
 # --- Database Registration ---
 register_tortoise(
     app,
     db_url=f"sqlite://{DATA_DIR / 'database.db'}",
-    modules={"models": ["pyauthskin.database"]}, # Update model path
+    modules={"models": ["pyauthskin.database"]},
     generate_schemas=True,
     add_exception_handlers=True,
 )
 
 # --- Middleware for Session ---
-from starlette.middleware.sessions import SessionMiddleware
 app.add_middleware(SessionMiddleware, secret_key="your-super-secret-key")
-
 
 if __name__ == "__main__":
     import uvicorn
-    from config import HOST, PORT
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=True) # Added reload=True
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)

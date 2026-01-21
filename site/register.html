@@ -3,19 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <title>Register</title>
+    <style>
+        #password-policy { list-style-type: none; padding: 0; margin-top: 10px; }
+        .policy-item { color: #dc3545; }
+        .policy-item.valid { color: #28a745; }
+    </style>
 </head>
 <body>
     <h1>Register New Account</h1>
     {% if error %}
         <p style="color: red;">{{ error }}</p>
     {% endif %}
-    <form action="/register" method="post">
+    <form action="/register" method="post" id="register-form">
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" required><br><br>
         <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required><br><br>
-        <input type="submit" value="Register">
+        <input type="password" id="password" name="password" required>
+        
+        <ul id="password-policy">
+            <li id="policy-length" class="policy-item">At least 8 characters long</li>
+            <li id="policy-case" class="policy-item">Contains both uppercase and lowercase letters</li>
+        </ul>
+        
+        <input type="submit" value="Register" id="register-button">
     </form>
     <p>Already have an account? <a href="/login">Login here</a>.</p>
+    <p><a href="/">Back to Home</a></p>
+
+    <script>
+        const passwordInput = document.getElementById('password');
+        const policyLength = document.getElementById('policy-length');
+        const policyCase = document.getElementById('policy-case');
+        const registerButton = document.getElementById('register-button');
+
+        function validatePassword() {
+            const password = passwordInput.value;
+            let isValidLength = false;
+            let isValidCase = false;
+
+            // Check length
+            if (password.length >= 8) {
+                policyLength.classList.add('valid');
+                policyLength.textContent = '✓ At least 8 characters long';
+                isValidLength = true;
+            } else {
+                policyLength.classList.remove('valid');
+                policyLength.textContent = '✗ At least 8 characters long';
+            }
+
+            // Check for both uppercase and lowercase
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) {
+                policyCase.classList.add('valid');
+                policyCase.textContent = '✓ Contains both uppercase and lowercase letters';
+                isValidCase = true;
+            } else {
+                policyCase.classList.remove('valid');
+                policyCase.textContent = '✗ Contains both uppercase and lowercase letters';
+            }
+
+            // Enable/disable the submit button
+            registerButton.disabled = !(isValidLength && isValidCase);
+        }
+
+        passwordInput.addEventListener('input', validatePassword);
+        
+        // Initial validation check in case of autofill
+        validatePassword();
+    </script>
 </body>
 </html>
