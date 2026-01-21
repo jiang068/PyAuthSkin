@@ -36,6 +36,11 @@
     <form action="/manager/upload" method="post" enctype="multipart/form-data">
         <label for="display_name">Skin Name:</label>
         <input type="text" id="display_name" name="display_name" required><br><br>
+        <label for="model">Model Type:</label>
+        <select id="model" name="model">
+            <option value="classic" selected>Steve (Classic)</option>
+            <option value="slim">Alex (Slim)</option>
+        </select><br><br>
         <label for="file">Skin File (.png):</label>
         <input type="file" name="file" accept=".png" required><br><br>
         <input type="submit" value="Upload">

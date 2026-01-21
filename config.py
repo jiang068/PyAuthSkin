@@ -1,13 +1,18 @@
 # config.py
+from pathlib import Path
 
-# 服务器监听的主机地址
-# "127.0.0.1" 表示只有本机可以访问
-# "0.0.0.0" 表示局域网内的其他机器也可以访问
+# Base directory of the project
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+
+# Server listening host
+# "127.0.0.1" means only accessible from the local machine
+# "0.0.0.0" means accessible from other machines on the network
 HOST = "localhost"
 
-# 服务器监听的端口
+# Server listening port
 PORT = 80
 
-# 完整的服务器基础 URL，用于生成皮肤链接
-# 注意：如果你的服务器在公网，请将 HOST 替换为你的域名或公网 IP
+# Full base URL for the server, used for generating skin links
+# Note: If your server is on the public internet, replace HOST with your domain or public IP
 BASE_URL = f"http://{HOST}" if PORT == 80 else f"http://{HOST}:{PORT}"

@@ -21,3 +21,4 @@ class UserTexture(Model):
     display_name = fields.CharField(max_length=255)
     is_active_skin = fields.BooleanField(default=False)
     is_active_cape = fields.BooleanField(default=False)
+    model = fields.CharField(max_length=10, default="classic")  # classic or slim

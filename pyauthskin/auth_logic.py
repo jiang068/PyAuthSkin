@@ -2,11 +2,11 @@ import base64
 import time
 import json
 from fastapi import APIRouter, HTTPException, Body
-from models import User, Texture, UserTexture
-from config import BASE_URL
-from security import pwd_context
+from .database import User, Texture, UserTexture
+from config import BASE_URL # Changed to absolute import
+from .security import pwd_context
 from typing import Dict, Any
-import keystore # Import the keystore
+from . import keystore
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -30,14 +30,23 @@ async def get_user_profile_data(uuid: str):
         clean_uuid = uuid.replace('-', '')
         user = await User.get(uuid=clean_uuid)
         
+        # Find the user's active skin relation, prefetching the texture object
         active_skin_relation = await UserTexture.get_or_none(user=user, is_active_skin=True).prefetch_related('texture')
         
         textures_data = {}
         if active_skin_relation:
             active_skin = active_skin_relation.texture
+            skin_model = active_skin_relation.model # This will be 'steve' or 'slim'
+            
+            skin_metadata = {}
+            # According to the official Yggdrasil spec, the 'model' key should only
+            # exist if the model is slim. It should be absent for the classic (steve) model.
+            if skin_model == 'slim':
+                skin_metadata['model'] = 'slim'
+
             textures_data["SKIN"] = {
                 "url": f"{BASE_URL}/static/skins/{active_skin.hash}.png",
-                "metadata": {"model": "default"} 
+                "metadata": skin_metadata
             }
 
         # The value of the "textures" property must be a signed JSON string
@@ -48,7 +57,8 @@ async def get_user_profile_data(uuid: str):
             "textures": textures_data
         }
         
-        textures_json = json.dumps(profile_textures).encode('utf-8')
+        # To ensure canonical representation, dump the JSON without any whitespace.
+        textures_json = json.dumps(profile_textures, separators=(',', ':')).encode('utf-8')
         
         # Sign the JSON data
         signature = sign_data(textures_json)

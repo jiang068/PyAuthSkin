@@ -1,48 +1,56 @@
 import os
 import hashlib
 import uuid
-from pathlib import Path # 导入 Path
+from pathlib import Path
 from fastapi import FastAPI, Request, File, UploadFile, Form, Depends, HTTPException, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from tortoise.contrib.fastapi import register_tortoise
 from tortoise.exceptions import DoesNotExist, IntegrityError
-from models import User, Texture, UserTexture
-from auth_logic import router as auth_router
-from skins_render import generate_avatar
-from config import BASE_URL, HOST, PORT
-from security import pwd_context
+from contextlib import asynccontextmanager
 from typing import Optional
+
+# --- Cryptography imports for key generation ---
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 import base64
-from contextlib import asynccontextmanager
-import keystore # Import the keystore
 
-# --- Security Setup ---
-# pwd_context is now in security.py
+# --- Import from our new package ---
+from pyauthskin.database import User, Texture, UserTexture
+from pyauthskin.auth_logic import router as auth_router
+from pyauthskin.skins_render import generate_avatar
+from pyauthskin.security import pwd_context
+from pyauthskin import keystore
+
+# --- Config and Paths ---
+from config import BASE_URL, HOST, PORT, DATA_DIR
+
+# --- Pre-startup Directory Creation ---
+# Ensure all necessary data directories exist before the app is created.
+# This prevents errors when mounting static files.
+(DATA_DIR / "static" / "skins").mkdir(parents=True, exist_ok=True)
+(DATA_DIR / "templates").mkdir(parents=True, exist_ok=True)
 
 # --- Lifespan manager for startup events ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load keys on startup
+    # Load keys on startup, directories are already created.
     generate_and_load_keys()
     yield
     # Shutdown logic can go here if needed
 
 app = FastAPI(lifespan=lifespan)
 
-# --- Base Directory for absolute paths ---
-BASE_DIR = Path(__file__).resolve().parent
-
 # --- RSA Key Generation and Loading ---
-PUBLIC_KEY_PATH = BASE_DIR / "public.pem"
-PRIVATE_KEY_PATH = BASE_DIR / "private.key"
+PUBLIC_KEY_PATH = DATA_DIR / "public.pem"
+PRIVATE_KEY_PATH = DATA_DIR / "private.key"
 
 def generate_and_load_keys():
-    private_key_obj = None
+    """
+    Generates RSA keys if they don't exist, then loads them into the keystore.
+    """
     if not PUBLIC_KEY_PATH.exists() or not PRIVATE_KEY_PATH.exists():
         print("Generating new RSA key pair...")
         private_key_obj = rsa.generate_private_key(
@@ -65,7 +73,7 @@ def generate_and_load_keys():
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             ))
     
-    # Load the private key from file
+    # Load the private key from file into the keystore
     with open(PRIVATE_KEY_PATH, "rb") as f:
         keystore.SIGNING_PRIVATE_KEY = serialization.load_pem_private_key(
             f.read(),
@@ -73,8 +81,7 @@ def generate_and_load_keys():
             backend=default_backend()
         )
 
-    # According to the authlib-injector source code, the public key
-    # must be the full, raw PEM content including headers and newlines.
+    # Load the raw public key PEM content into the keystore
     with open(PUBLIC_KEY_PATH, "r") as f:
         keystore.SIGNATURE_PUBLIC_KEY_B64 = f.read()
 
@@ -86,8 +93,8 @@ def generate_and_load_keys():
 
 
 # --- Mount static files & Setup templates ---
-app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
-templates = Jinja2Templates(directory=BASE_DIR / "templates")
+app.mount("/static", StaticFiles(directory=DATA_DIR / "static"), name="static")
+templates = Jinja2Templates(directory=DATA_DIR / "templates")
 
 # --- Include the auth router for the game client ---
 app.include_router(auth_router)
@@ -109,9 +116,9 @@ async def get_current_user(request: Request) -> Optional[User]:
 async def root():
     return {
         "meta": {
-            "serverName": "My Python Skin Server",
-            "implementationName": "BlessingPython",
-            "implementationVersion": "0.1.0"
+            "serverName": "PyAuthSkin", # Updated project name
+            "implementationName": "PyAuthSkin",
+            "implementationVersion": "1.0.0"
         },
         "skinDomains": [HOST], # Only provide the hostname
         "signaturePublickey": keystore.SIGNATURE_PUBLIC_KEY_B64 # Use the key from keystore
@@ -170,17 +177,17 @@ async def manager(request: Request, user: User = Depends(get_current_user)):
 
 
 @app.post("/manager/upload")
-async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...), user: User = Depends(get_current_user)):
+async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...), model: str = Form("classic"), user: User = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=403)
 
     contents = await file.read()
-    # Truncate the SHA256 hash to the first 8 characters
+    # Truncate the SHA256 hash to the first 8 characters - FIX TYPO
     file_hash = hashlib.sha256(contents).hexdigest()[:8]
     
-    # Use absolute paths for file operations
-    skins_dir = BASE_DIR / "static" / "skins"
-    skins_dir.mkdir(exist_ok=True) # Ensure the directory exists
+    # Use absolute paths from DATA_DIR for file operations
+    skins_dir = DATA_DIR / "static" / "skins"
+    skins_dir.mkdir(exist_ok=True)
     skin_path = skins_dir / f"{file_hash}.png"
     avatar_path = skins_dir / f"{file_hash}_avatar.png"
 
@@ -190,7 +197,7 @@ async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...
     texture, _ = await Texture.get_or_create(hash=file_hash, defaults={"path": str(skin_path), "uploader": user})
     
     await UserTexture.filter(user=user, is_active_skin=True).update(is_active_skin=False)
-    await UserTexture.create(user=user, texture=texture, display_name=display_name, is_active_skin=True)
+    await UserTexture.create(user=user, texture=texture, display_name=display_name, model=model, is_active_skin=True)
 
     generate_avatar(skin_path, avatar_path)
 
@@ -213,8 +220,8 @@ async def set_active_skin(skin_id: int, user: User = Depends(get_current_user)):
 # --- Database Registration ---
 register_tortoise(
     app,
-    db_url="sqlite://database.db",
-    modules={"models": ["models"]},
+    db_url=f"sqlite://{DATA_DIR / 'database.db'}",
+    modules={"models": ["pyauthskin.database"]}, # Update model path
     generate_schemas=True,
     add_exception_handlers=True,
 )
@@ -227,4 +234,4 @@ app.add_middleware(SessionMiddleware, secret_key="your-super-secret-key")
 if __name__ == "__main__":
     import uvicorn
     from config import HOST, PORT
-    uvicorn.run(app, host=HOST, port=PORT)
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=True) # Added reload=True

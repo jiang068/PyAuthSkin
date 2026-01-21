@@ -1,26 +1,28 @@
 # Python virtual environment
-plavenv/
+authlib-injector-develop/
+blessing-skin-server-dev/
+*venv/
 
 # Python cache files
 __pycache__/
+pyauthskin/__pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Database file
-database.db
-database.db-shm
-database.db-wal
+# Runtime data files inside the 'data' directory
+# Ignore the database files
+data/database.db
+data/database.db-shm
+data/database.db-wal
 
-# RSA keys (Sensitive information, should not be in version control)
-private.key
-public.pem
+# Ignore RSA keys (Sensitive information)
+data/private.key
+data/public.pem
+
+# Ignore user-uploaded skins
+data/static/skins/
 
 # IDE-specific files
 .vscode/
 .idea/
-
-# Static files uploaded by users (skins)
-# You might want to track this folder if you have default skins,
-# but typically user-generated content is ignored.
-static/skins/
