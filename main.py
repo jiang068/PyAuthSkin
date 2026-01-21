@@ -2,6 +2,8 @@ import base64
 from contextlib import asynccontextmanager
 from pathlib import Path
 import hashlib
+import os
+import secrets
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -31,7 +33,7 @@ from pyauthskin import keystore
 from pyauthskin.web import router as web_router # Import the new web router
 
 # --- Config and Paths ---
-from config import BASE_DIR, DATA_DIR, HOST, PORT, AUTH_API_PREFIX
+from config import BASE_DIR, DATA_DIR, HOST, PORT, AUTH_API_PREFIX, CORS_ALLOWED_ORIGINS, CORS_ALLOW_CREDENTIALS, CORS_ALLOWED_METHODS, CORS_ALLOWED_HEADERS
 
 # --- Pre-startup Directory Creation ---
 # Ensure all necessary data directories exist before the app is created.
@@ -121,8 +123,36 @@ register_tortoise(
 from starlette.middleware.sessions import SessionMiddleware # Add SessionMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException # Import Starlette's HTTPException
 from starlette.requests import Request as StarletteRequest # Explicitly import Request for the handler
+from starlette.middleware.cors import CORSMiddleware
 
-app.add_middleware(SessionMiddleware, secret_key="your-super-secret-key")
+# --- CSRF Protection ---
+from fastapi_csrf_protect import CsrfProtect
+from fastapi_csrf_protect.exceptions import CsrfProtectError
+
+# --- Rate Limiting ---
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# Get session secret from env or generate random
+SESSION_SECRET = os.getenv("SESSION_SECRET", secrets.token_hex(32))
+
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
+
+# --- CORS Middleware ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOWED_ORIGINS,
+    allow_credentials=CORS_ALLOW_CREDENTIALS,
+    allow_methods=CORS_ALLOWED_METHODS,
+    allow_headers=CORS_ALLOWED_HEADERS,
+)
 
 # --- Custom 404 Error Handler ---
 @app.exception_handler(StarletteHTTPException)

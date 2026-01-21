@@ -3,6 +3,7 @@
 import hashlib
 import re
 import uuid
+import io
 from typing import Optional
 from pathlib import Path # Add missing import
 
@@ -70,6 +71,12 @@ async def register_page(request: Request, user: User = Depends(get_current_user)
 
 @router.post("/register")
 async def register(request: Request, username: str = Form(...), password: str = Form(...)):
+    # Username validation
+    if len(username) < 3 or len(username) > 20:
+        return templates.TemplateResponse("register.html", {"request": request, "error": "Username must be between 3 and 20 characters"}, status_code=400)
+    if not re.match(r"^[a-zA-Z0-9_]+$", username):
+        return templates.TemplateResponse("register.html", {"request": request, "error": "Username can only contain letters, numbers, and underscores"}, status_code=400)
+    
     # Password policy validation
     if len(password) < 8:
         return templates.TemplateResponse("register.html", {"request": request, "error": "Password must be at least 8 characters long"}, status_code=400)
@@ -97,11 +104,41 @@ async def manager(request: Request, user: User = Depends(get_current_user)):
 
 
 @router.post("/manager/upload")
-async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...), model: str = Form("classic"), user: User = Depends(get_current_user)):
+async def upload_skin(
+    request: Request,
+    file: UploadFile = File(...),
+    display_name: str = Form(...),
+    model: str = Form("classic"),
+    user: User = Depends(get_current_user)
+):
+    
     if not user:
         return RedirectResponse(url="/login", status_code=403)
 
+    # Display name validation
+    if len(display_name) < 1 or len(display_name) > 50:
+        return templates.TemplateResponse("manager.html", {"request": request, "user": user, "error": "Display name must be between 1 and 50 characters"}, status_code=400)
+
+    # File size limit: 1MB
     contents = await file.read()
+    if len(contents) > 1024 * 1024:
+        return templates.TemplateResponse("manager.html", {"request": request, "user": user, "error": "File size must be less than 1MB"}, status_code=400)
+
+    # File type validation
+    if not file.content_type or not file.content_type.startswith("image/png"):
+        return templates.TemplateResponse("manager.html", {"request": request, "user": user, "error": "Only PNG files are allowed"}, status_code=400)
+    
+    # Validate PNG content
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(contents))
+        img.verify()  # Verify it's a valid image
+        if img.format != "PNG":
+            raise ValueError("Not PNG")
+    except Exception:
+        return templates.TemplateResponse("manager.html", {"request": request, "user": user, "error": "Invalid PNG file"}, status_code=400)
+
+    file_hash = hashlib.sha256(contents).hexdigest()[:8]
     file_hash = hashlib.sha256(contents).hexdigest()[:8]
     
     # Use absolute paths from DATA_DIR for file operations
@@ -136,7 +173,7 @@ async def upload_skin(file: UploadFile = File(...), display_name: str = Form(...
     return RedirectResponse(url="/manager", status_code=303)
 
 @router.post("/manager/set_active/{skin_id}")
-async def set_active_skin(skin_id: int, user: User = Depends(get_current_user)):
+async def set_active_skin(skin_id: int, request: Request, user: User = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=403)
 
@@ -146,7 +183,7 @@ async def set_active_skin(skin_id: int, user: User = Depends(get_current_user)):
     return RedirectResponse(url="/manager", status_code=303)
 
 @router.post("/manager/delete_skin/{skin_id}")
-async def delete_skin(skin_id: int, user: User = Depends(get_current_user)):
+async def delete_skin(skin_id: int, request: Request, user: User = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=403)
 

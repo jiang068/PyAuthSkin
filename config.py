@@ -24,3 +24,15 @@ AUTH_API_PREFIX = "/api/pyauthskin"
 # Logging level for Uvicorn and the application
 # Options: "debug", "info", "warning", "error", "critical"
 LOG_LEVEL = "info"
+
+# CORS configuration
+# Allowed origins for CORS (use ["*"] for all in development, specify domains in production)
+# 只需修改 config.py 中的 CORS_ALLOWED_ORIGINS 为具体域名列表
+CORS_ALLOWED_ORIGINS = ["*"]
+
+# Allow credentials in CORS
+CORS_ALLOW_CREDENTIALS = True
+# Allowed methods for CORS
+CORS_ALLOWED_METHODS = ["*"]
+# Allowed headers for CORS
+CORS_ALLOWED_HEADERS = ["*"]

@@ -9,3 +9,4 @@ passlib
 itsdangerous
 argon2-cffi
 cryptography
+slowapi
