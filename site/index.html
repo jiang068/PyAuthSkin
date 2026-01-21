@@ -1,33 +1,120 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Welcome to PyAuthSkin</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 40px auto; padding: 0 20px; }
-        h1 { color: #111; }
-        .container { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 40px; }
-        .nav { margin-top: 30px; }
-        .nav a { text-decoration: none; background: #007bff; color: #fff; padding: 10px 15px; border-radius: 5px; margin-right: 10px; }
-        .nav a:hover { background: #0056b3; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyAuthSkin | Minecraft Identity</title>
+    <!-- 使用绝对路径 /style.css 确保在任何 URL 下都能找到样式 -->
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // 立即执行以防止闪屏
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+        tailwind.config = { darkMode: 'class' };
+    </script>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to PyAuthSkin!</h1>
-        <p>This is a lightweight, high-performance Minecraft skin server and authentication backend, written entirely in Python.</p>
-        <p>You can manage your account, upload skins, and use it with any game client that supports the Yggdrasil authentication protocol.</p>
-        
-        <div class="nav">
-            {% if user %}
-                <p>Welcome, <strong>{{ user.username }}</strong>!</p>
-                <a href="/manager">Go to Manager</a>
-                <a href="/logout">Logout</a>
-            {% else %}
-                <a href="/login">Login</a>
-                <a href="/register">Register</a>
-            {% endif %}
+    <header class="fixed top-0 w-full z-50 header-shell h-16">
+        <div class="max-w-6xl mx-auto px-6 h-full flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2 group">
+                <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold group-hover:rotate-6 transition-transform">P</div>
+                <span class="font-bold text-lg tracking-tight">PyAuthSkin</span>
+            </a>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <svg class="hidden dark:block w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                    <svg class="block dark:hidden w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                </button>
+                <nav class="flex items-center gap-4 border-l border-slate-200 dark:border-slate-700 pl-4">
+                    {% if user %}
+                        <a href="/manager" class="text-sm font-medium text-slate-500 hover:text-emerald-500 transition">Dashboard</a>
+                        <a href="/logout" class="text-sm font-medium text-slate-500 hover:text-red-500 transition">Logout</a>
+                    {% else %}
+                        <a href="/login" class="text-sm font-medium text-slate-500 hover:text-emerald-500 transition">Login</a>
+                        <a href="/register" class="px-4 py-2 btn-base btn-emerald text-sm">Sign Up</a>
+                    {% endif %}
+                </nav>
+            </div>
         </div>
+    </header>
+
+    <div id="pjax-container" class="pt-24 pb-12 animate-fade">
+        <main class="max-w-4xl mx-auto px-6 text-center py-20">
+            <h1 class="text-5xl md:text-7xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400">Your Skins, <br/>Everywhere.</h1>
+            <p class="text-lg text-slate-500 dark:text-slate-400 mb-10 max-w-xl mx-auto">A clean, fast, and secure private authentication server.</p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                {% if user %}
+                    <div class="p-8 card-base text-left max-w-md mx-auto w-full">
+                        <h3 class="font-bold text-xl mb-1">Welcome, {{ user.username }}</h3>
+                        <a href="/manager" class="block w-full text-center py-4 mt-6 btn-base btn-emerald">Enter Dashboard</a>
+                    </div>
+                {% else %}
+                    <a href="/register" class="px-10 py-4 btn-base btn-emerald text-lg">Get Started Free</a>
+                    <a href="/login" class="px-10 py-4 btn-base border border-slate-200 dark:border-slate-700 text-lg">Sign In</a>
+                {% endif %}
+            </div>
+        </main>
     </div>
+
+    <!-- 底部统一脚本 -->
+    <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        }
+        // PJAX 逻辑确保页面内无刷新跳转
+        const pjaxContainer = document.getElementById('pjax-container');
+        async function loadPage(url, pushState = true) {
+            pjaxContainer.classList.add('pjax-loading');
+            try {
+                const res = await fetch(url);
+                const html = await res.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const newContent = doc.getElementById('pjax-container');
+                if (newContent) {
+                    pjaxContainer.innerHTML = newContent.innerHTML;
+                    document.title = doc.title;
+                    if (pushState) window.history.pushState({ url }, doc.title, url);
+                    window.scrollTo(0, 0);
+                    // 重新执行新内容中的脚本
+                    pjaxContainer.querySelectorAll('script').forEach(s => {
+                        const ns = document.createElement('script');
+                        Array.from(s.attributes).forEach(a => ns.setAttribute(a.name, a.value));
+                        ns.appendChild(document.createTextNode(s.innerHTML));
+                        s.parentNode.replaceChild(ns, s);
+                    });
+                } else window.location.href = url;
+            } catch (e) { window.location.href = url; } finally { pjaxContainer.classList.remove('pjax-loading'); }
+        }
+        document.addEventListener('click', e => {
+            const a = e.target.closest('a');
+            if (a && a.href && a.origin === window.location.origin && !a.hasAttribute('download')) { e.preventDefault(); loadPage(a.href); }
+        });
+        window.onpopstate = () => loadPage(window.location.pathname, false);
+        document.addEventListener('submit', async e => {
+            const f = e.target;
+            if (f.origin === window.location.origin && f.enctype !== 'multipart/form-data') {
+                e.preventDefault(); pjaxContainer.classList.add('pjax-loading');
+                try {
+                    const res = await fetch(f.action, { method: f.method, body: new URLSearchParams(new FormData(f)), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+                    if (res.redirected) loadPage(res.url);
+                    else {
+                        const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+                        pjaxContainer.innerHTML = doc.getElementById('pjax-container').innerHTML;
+                    }
+                } catch (err) { window.location.reload(); } finally { pjaxContainer.classList.remove('pjax-loading'); }
+            }
+        });
+    </script>
 </body>
 </html>

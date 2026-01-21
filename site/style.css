@@ -1,0 +1,99 @@
+
+/* 全局变量与重置 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-input: #f1f5f9;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --emerald-primary: #10b981;
+    --emerald-hover: #059669;
+    --shadow-main: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.dark {
+    --bg-main: #0f172a;
+    --bg-card: #1e293b;
+    --bg-input: #0f172a;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border-color: #334155;
+    --shadow-main: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    transition: background-color 0.3s, color 0.3s;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+}
+
+/* UI 组件类 */
+.header-shell {
+    background-color: rgba(var(--bg-card), 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-base {
+    background-color: var(--bg-card);
+    border-radius: 2rem;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-main);
+    transition: all 0.3s ease;
+}
+
+.avatar-box {
+    background-color: var(--bg-input);
+    border-radius: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.input-field {
+    width: 100%;
+    padding: 1rem 1.25rem;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 1.25rem;
+    color: var(--text-main);
+    outline: none;
+    transition: all 0.2s;
+}
+.input-field:focus { box-shadow: 0 0 0 2px var(--emerald-primary); }
+
+.btn-base {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    transition: all 0.2s;
+    border-radius: 1rem;
+    cursor: pointer;
+    border: none;
+}
+.btn-emerald { background: var(--emerald-primary); color: white; }
+.btn-emerald:hover { background: var(--emerald-hover); transform: translateY(-1px); }
+.btn-emerald:active { transform: scale(0.98); }
+
+.label-caps {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.pixelated { image-rendering: pixelated; }
+.pjax-loading { opacity: 0.5; pointer-events: none; filter: grayscale(0.5); }
+.animate-fade { animation: fadeIn 0.4s ease-out forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

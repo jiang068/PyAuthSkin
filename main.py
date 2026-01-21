@@ -90,6 +90,9 @@ app.state.templates = templates # Attach templates to app state
 app.include_router(auth_router) # For the game client
 app.include_router(web_router)  # For the web interface
 
+# --- Mount site static files after routers ---
+app.mount("/", StaticFiles(directory=BASE_DIR / "site"), name="site")
+
 # --- Yggdrasil Metadata Endpoint ---
 from config import AUTH_API_PREFIX # Import AUTH_API_PREFIX
 

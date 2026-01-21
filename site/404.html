@@ -1,19 +1,48 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>404 Not Found</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Not Found | PyAuthSkin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 40px auto; padding: 0 20px; text-align: center; }
-        h1 { color: #dc3545; font-size: 3em; margin-bottom: 10px; }
-        p { font-size: 1.2em; }
-        .back-button { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #007bff; color: #fff; text-decoration: none; border-radius: 5px; }
-        .back-button:hover { background: #0056b3; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body>
-    <h1>404</h1>
-    <p>Oops! The page you are looking for could not be found.</p>
-    <a href="/" class="back-button">Go to Home Page</a>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex items-center justify-center p-6">
+    <div class="max-w-md w-full text-center">
+        <div class="mb-8 relative inline-block">
+            <h1 class="text-9xl font-extrabold text-slate-200 dark:text-slate-800 tracking-tighter">404</h1>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-20 h-20 bg-red-500 rounded-3xl rotate-12 flex items-center justify-center text-white shadow-xl shadow-red-500/30">
+                    <svg class="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 9.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+            </div>
+        </div>
+        
+        <h2 class="text-3xl font-bold mb-4 italic">Lost in the End?</h2>
+        <p class="text-slate-500 dark:text-slate-400 mb-10 leading-relaxed">
+            Oops! The page you are looking for has been moved to another dimension or never existed at all.
+        </p>
+        
+        <a href="/" class="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            Return to Civilization
+        </a>
+        
+        <div class="mt-12 text-slate-400 dark:text-slate-600 text-sm">
+            PyAuthSkin Security Protocol Error &bull; [Code: ENDER_VOID]
+        </div>
+    </div>
 </body>
 </html>

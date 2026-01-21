@@ -1,59 +1,110 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MC Skin Server Manager</title>
-    <style>
-        body { font-family: sans-serif; }
-        .skin-gallery { display: flex; flex-wrap: wrap; gap: 20px; }
-        .skin-card { border: 1px solid #ccc; padding: 10px; text-align: center; }
-        .skin-card img { width: 128px; height: 128px; image-rendering: pixelated; }
-        .active-skin { border-color: #4CAF50; border-width: 2px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager | PyAuthSkin</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+        tailwind.config = { darkMode: 'class' };
+    </script>
 </head>
 <body>
-    <h1>Welcome, {{ user.username }}!</h1>
-    <p>
-        <a href="/">Back to Home</a> | 
-        <a href="/logout">Logout</a>
-    </p>
-    
-    <h2>My Skins</h2>
-    <div class="skin-gallery">
-        {% for skin in skins %}
-        <div class="skin-card {% if skin.is_active_skin %}active-skin{% endif %}">
-            <img src="/skins/{{ skin.texture.hash }}_avatar.png" alt="{{ skin.display_name }}">
-            <p>{{ skin.display_name }}</p>
-            <p class="skin-resolution">{{ skin.texture.width }}x{{ skin.texture.height }} 
-                ({% if skin.model == 'slim' %}Alex{% else %}Steve{% endif %})
-            </p>
-            {% if not skin.is_active_skin %}
-            <form action="/manager/set_active/{{ skin.id }}" method="post" style="display:inline;">
-                <button type="submit">Set as Active</button>
-            </form>
-            {% endif %}
-            <form action="/manager/delete_skin/{{ skin.id }}" method="post" style="display:inline; margin-left: 10px;" onsubmit="return confirm('Are you sure you want to delete this skin?');">
-                <button type="submit" style="background-color: #dc3545; color: white;">Delete</button>
-            </form>
+    <header class="fixed top-0 w-full z-50 header-shell h-16">
+        <div class="max-w-6xl mx-auto px-6 h-full flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2 group">
+                <div class="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-bold group-hover:rotate-6 transition-transform">P</div>
+                <span class="font-bold text-lg tracking-tight">PyAuthSkin</span>
+            </a>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleTheme()" class="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <svg class="hidden dark:block w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
+                    <svg class="block dark:hidden w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                </button>
+                <nav class="flex items-center gap-4 border-l border-slate-200 dark:border-slate-700 pl-4">
+                    <a href="/manager" class="text-sm font-medium text-emerald-500">Dashboard</a>
+                    <a href="/logout" class="text-sm font-medium text-slate-500 hover:text-red-500 transition">Logout</a>
+                </nav>
+            </div>
         </div>
-        {% endfor %}
+    </header>
+
+    <div id="pjax-container" class="pt-24 pb-12 animate-fade">
+        <main class="max-w-6xl mx-auto px-6">
+            <header class="mb-12">
+                <h2 class="text-4xl font-extrabold tracking-tight">Skin Vault</h2>
+                <p class="text-slate-500">Manage your character appearances</p>
+            </header>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 mb-20">
+                {% for skin in skins %}
+                <div class="card-base p-4 relative border-2 {% if skin.is_active_skin %}border-emerald-500 shadow-xl{% else %}border-transparent hover:border-slate-200 dark:hover:border-slate-700{% endif %} transition-all">
+                    <div class="avatar-box aspect-[3/4] mb-4 relative">
+                        <img src="/skins/{{ skin.texture.hash }}_avatar.png" class="w-3/4 h-3/4 object-contain pixelated hover:scale-110 transition-transform duration-500" />
+                        {% if skin.is_active_skin %}<div class="absolute top-3 right-3 w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>{% endif %}
+                    </div>
+                    <div class="px-1">
+                        <h3 class="font-bold text-sm truncate">{{ skin.display_name }}</h3>
+                        <p class="text-[10px] uppercase font-bold text-slate-400 tracking-tighter mb-4">{{ skin.model }} model</p>
+                        <div class="flex gap-2">
+                            {% if not skin.is_active_skin %}
+                            <form action="/manager/set_active/{{ skin.id }}" method="post" class="flex-grow">
+                                <button type="submit" class="w-full py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase rounded-xl hover:bg-emerald-100 transition">Active</button>
+                            </form>
+                            {% endif %}
+                            <form action="/manager/delete_skin/{{ skin.id }}" method="post" onsubmit="return confirm('Burn this skin?');">
+                                <button type="submit" class="p-2 text-slate-300 hover:text-red-500 transition">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <section class="max-w-2xl mx-auto card-base p-10 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-3xl rounded-full"></div>
+                <h3 class="text-2xl font-bold mb-8">Upload New Texture</h3>
+                <form action="/manager/upload" method="post" enctype="multipart/form-data" class="space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <label class="label-caps">Display Name</label>
+                            <input type="text" name="display_name" required class="input-field">
+                        </div>
+                        <div>
+                            <label class="label-caps">Model</label>
+                            <select name="model" class="input-field appearance-none cursor-pointer">
+                                <option value="classic">Classic (Steve)</option>
+                                <option value="slim">Slim (Alex)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label-caps">Skin File (.png)</label>
+                        <div class="relative group">
+                            <input type="file" name="file" accept=".png" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <div class="py-10 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-3xl flex flex-col items-center justify-center group-hover:border-emerald-500 transition bg-slate-50/50 dark:bg-slate-800/50">
+                                <svg class="w-8 h-8 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                <span class="text-sm text-slate-400 text-center">Drag or click to choose PNG<br><span class="text-[10px] opacity-50 font-bold">Recommended 64x64</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-5 btn-base btn-emerald text-sm uppercase tracking-widest">Confirm Upload</button>
+                </form>
+            </section>
+        </main>
     </div>
 
-    <hr>
-
-    <h2>Upload New Skin</h2>
-    <form action="/manager/upload" method="post" enctype="multipart/form-data">
-        <label for="display_name">Skin Name:</label>
-        <input type="text" id="display_name" name="display_name" required><br><br>
-        <label for="model">Model Type:</label>
-        <select id="model" name="model">
-            <option value="classic" selected>Steve (Classic)</option>
-            <option value="slim">Alex (Slim)</option>
-        </select><br><br>
-        <label for="file">Skin File (.png):</label>
-        <input type="file" name="file" accept=".png" required><br><br>
-        <input type="submit" value="Upload">
-    </form>
-
+    <!-- 同样需要包含这些脚本，以防页面硬刷新 -->
+    <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        }
+    </script>
 </body>
 </html>
