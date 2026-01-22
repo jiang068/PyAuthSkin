@@ -173,7 +173,7 @@ async def upload_skin(
     return RedirectResponse(url="/manager", status_code=303)
 
 @router.post("/manager/set_skin_for_player/{player_id}")
-async def set_skin_for_player(player_id: int, request: Request, skin_id: str = Form(...), user: User = Depends(get_current_user)):
+async def set_skin_for_player(player_id: int, request: Request, skin_id: Optional[str] = Form(None), user: User = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=403)
 
@@ -181,7 +181,7 @@ async def set_skin_for_player(player_id: int, request: Request, skin_id: str = F
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    if skin_id == "":
+    if skin_id is None or skin_id == "":
         player.skin_texture = None
     else:
         texture = await Texture.filter(id=int(skin_id), uploader=user).first()

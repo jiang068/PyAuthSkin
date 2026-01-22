@@ -2,7 +2,6 @@
  * PyAuthSkin Global Script
  */
 
-// 1. 全局配置与初始化
 window.tailwind.config = { darkMode: 'class' };
 
 window.toggleTheme = function() {
@@ -10,7 +9,6 @@ window.toggleTheme = function() {
     localStorage.theme = isDark ? 'dark' : 'light';
 };
 
-// 2. 模态框逻辑绑定全局
 let formToSubmit = null;
 window.openDeleteModal = function(formId) {
     formToSubmit = document.getElementById(formId);
@@ -20,7 +18,6 @@ window.openDeleteModal = function(formId) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     requestAnimationFrame(() => card.classList.replace('scale-95', 'scale-100'));
-    
     document.getElementById('confirm-delete-btn').onclick = () => {
         if (formToSubmit) {
             const event = new Event('submit', { cancelable: true, bubbles: true });
@@ -41,14 +38,12 @@ window.closeDeleteModal = function() {
     }, 100);
 };
 
-// 3. PJAX 核心逻辑
 const pjaxContainerId = 'pjax-container';
 
 async function updateDOM(html, url, pushState = true) {
     const container = document.getElementById(pjaxContainerId);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const newContent = doc.getElementById(pjaxContainerId);
-    
     if (newContent && container) {
         container.innerHTML = newContent.innerHTML;
         document.title = doc.title;
@@ -63,9 +58,7 @@ async function updateDOM(html, url, pushState = true) {
 
 async function loadPage(url, pushState = true) {
     const container = document.getElementById(pjaxContainerId);
-    // 只有请求超过 300ms 才会显示变暗动画，防止快速切换时的闪烁
     const timer = setTimeout(() => container?.classList.add('pjax-loading'), 300);
-    
     try {
         const res = await fetch(url);
         clearTimeout(timer);
@@ -77,7 +70,6 @@ async function loadPage(url, pushState = true) {
     }
 }
 
-// 4. 事件监听器
 document.addEventListener('click', e => {
     const a = e.target.closest('a');
     if (a && a.href && a.origin === window.location.origin) {
@@ -93,27 +85,22 @@ document.addEventListener('submit', async e => {
     const f = e.target;
     const container = document.getElementById(pjaxContainerId);
     const actionUrl = new URL(f.action, window.location.origin);
-    
     if (actionUrl.origin === window.location.origin) {
         e.preventDefault();
-        // 提交时不添加 pjax-loading，实现“瞬时”感
-        
         try {
             const formData = new FormData(f);
             let fetchOptions = { method: f.method.toUpperCase() || 'POST' };
-
             if (f.enctype === 'multipart/form-data') {
-                fetchOptions.body = formData; // 文件上传
+                fetchOptions.body = formData;
             } else {
-                fetchOptions.body = new URLSearchParams(formData); // 普通表单
+                fetchOptions.body = new URLSearchParams(formData);
                 fetchOptions.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
             }
-
             const res = await fetch(f.action, fetchOptions);
             const html = await res.text();
             updateDOM(html, res.url, false);
         } catch (err) {
-            f.submit(); // 出错则退回到普通提交
+            console.error("PJAX Error:", err);
         }
     }
 });
