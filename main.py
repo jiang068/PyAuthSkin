@@ -63,6 +63,7 @@ PUBLIC_KEY_PATH = DATA_DIR / "public.pem"
 PRIVATE_KEY_PATH = DATA_DIR / "private.key"
 
 def generate_and_load_keys():
+    # print("Starting key generation/loading...") # debug
     if not PUBLIC_KEY_PATH.exists() or not PRIVATE_KEY_PATH.exists():
         print("Generating new RSA key pair...")
         private_key_obj = rsa.generate_private_key(
@@ -83,12 +84,24 @@ def generate_and_load_keys():
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             ))
     
+    # print("Loading existing keys...") # debug
     with open(PRIVATE_KEY_PATH, "rb") as f:
         keystore.SIGNING_PRIVATE_KEY = serialization.load_pem_private_key(
             f.read(), password=None, backend=default_backend()
         )
-    with open(PUBLIC_KEY_PATH, "r") as f:
-        keystore.SIGNATURE_PUBLIC_KEY_B64 = f.read()
+        # print(f"Private key loaded successfully: {keystore.SIGNING_PRIVATE_KEY is not None}") # debug
+    with open(PUBLIC_KEY_PATH, "rb") as f:
+        public_key_pem = f.read()
+        public_key_obj = serialization.load_pem_public_key(public_key_pem, backend=default_backend())
+        # Export public key as PEM (SubjectPublicKeyInfo). authlib-injector expects
+        # a PEM block for signaturePublickey (KeyUtils.decodePEMPublicKey will
+        # remove newlines and parse the inner base64).
+        public_key_pem = public_key_obj.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        keystore.SIGNATURE_PUBLIC_KEY_B64 = public_key_pem.decode('utf-8')
+        # print(f"Public key loaded successfully (PEM), length: {len(keystore.SIGNATURE_PUBLIC_KEY_B64)}")  # debug
 
 # --- Mount static files ---
 app.mount("/skins", StaticFiles(directory=DATA_DIR / "skins"), name="skins")
@@ -154,6 +167,27 @@ async def http_exception_handler(request: StarletteRequest, exc: StarletteHTTPEx
     if exc.status_code == 404:
         # Access templates from app state
         return request.app.state.templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+    elif exc.status_code == 204:
+        # Handle 204 No Content properly
+        return Response(status_code=204)
+    elif exc.status_code == 403:
+        # Handle 403 Forbidden properly
+        return JSONResponse(status_code=403, content={"error": "Forbidden", "errorMessage": exc.detail})
+    elif exc.status_code == 405:
+        # Handle 405 Method Not Allowed
+        return JSONResponse(status_code=405, content={"error": "Method Not Allowed", "errorMessage": exc.detail})
+    # For other HTTP exceptions, re-raise to let default handler take over
+    raise exc
+
+# --- Custom FastAPI HTTP Exception Handler ---
+@app.exception_handler(HTTPException)
+async def fastapi_http_exception_handler(request: StarletteRequest, exc: HTTPException):
+    if exc.status_code == 403:
+        # Handle 403 Forbidden properly for FastAPI HTTPException
+        return JSONResponse(status_code=403, content={"error": "Forbidden", "errorMessage": exc.detail})
+    elif exc.status_code == 405:
+        # Handle 405 Method Not Allowed
+        return JSONResponse(status_code=405, content={"error": "Method Not Allowed", "errorMessage": exc.detail})
     # For other HTTP exceptions, re-raise to let default handler take over
     raise exc
 

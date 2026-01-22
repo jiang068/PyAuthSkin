@@ -10,3 +10,4 @@ itsdangerous
 argon2-cffi
 cryptography
 slowapi
+fastapi-csrf-protect

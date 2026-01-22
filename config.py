@@ -8,7 +8,7 @@ DATA_DIR = BASE_DIR / "data"
 # Server listening host
 # "127.0.0.1" means only accessible from the local machine
 # "0.0.0.0" means accessible from other machines on the network
-HOST = "localhost"
+HOST = "127.0.0.1"
 
 # Server listening port
 PORT = 80
