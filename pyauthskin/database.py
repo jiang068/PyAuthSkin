@@ -17,7 +17,11 @@ class Player(Model):
 
 class Texture(Model):
     id = fields.IntField(pk=True)
-    hash = fields.CharField(max_length=255, unique=True)
+    # Allow multiple Texture records to share the same file hash so that
+    # different users can each have their own Texture DB entry pointing to
+    # the same physical file. Uniqueness is managed at the file path level
+    # instead of the DB hash field.
+    hash = fields.CharField(max_length=255)
     path = fields.CharField(max_length=255)
     uploader = fields.ForeignKeyField('models.User', related_name='textures', null=True)
     width = fields.IntField(default=64)

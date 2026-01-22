@@ -4,6 +4,7 @@ import hashlib
 import re
 import uuid
 import io
+from pathlib import Path
 from typing import Optional
 
 from fastapi import (APIRouter, Depends, File, Form, Request,
@@ -100,6 +101,16 @@ async def manager(request: Request, user: User = Depends(get_current_user)):
     
     # Fetch user skins and players
     skins = await Texture.filter(uploader=user)
+    # Compute avatar filename to use in templates. We store the physical
+    # path in Texture.path, but Texture.hash may include a DB-unique suffix
+    # so we derive avatar filename from the actual file stem.
+    for s in skins:
+        try:
+            p = Path(s.path)
+            s.avatar_filename = f"{p.stem}_avatar.png"
+        except Exception:
+            # Fall back to using the DB hash if path is missing
+            s.avatar_filename = f"{s.hash}_avatar.png"
     players = await Player.filter(user=user).prefetch_related('skin_texture')
     return templates.TemplateResponse("manager.html", {"request": request, "user": user, "skins": skins, "players": players})
 
@@ -140,35 +151,43 @@ async def upload_skin(
         return templates.TemplateResponse("manager.html", {"request": request, "user": user, "error": "Invalid PNG file"}, status_code=400)
 
     file_hash = hashlib.sha256(contents).hexdigest()[:8]
-    file_hash = hashlib.sha256(contents).hexdigest()[:8]
-    
+
     # Use absolute paths from DATA_DIR for file operations
     skins_dir = DATA_DIR / "skins"
+    skins_dir.mkdir(parents=True, exist_ok=True)
     skin_path = skins_dir / f"{file_hash}.png"
     avatar_path = skins_dir / f"{file_hash}_avatar.png"
 
-    with open(skin_path, "wb") as f:
-        f.write(contents)
+    # Only write the file if it doesn't already exist on disk.
+    # Multiple Texture DB records may point to the same physical file.
+    if not skin_path.exists():
+        with open(skin_path, "wb") as f:
+            f.write(contents)
 
     # Get image dimensions using Pillow within this function's scope
     from PIL import Image # Import Image here to avoid circular dependency if skins_render also imports main
     with Image.open(skin_path) as img:
         skin_width, skin_height = img.size
 
-    texture = await Texture.filter(hash=file_hash).first()
-    if not texture:
-        texture = await Texture.create(
-            hash=file_hash,
-            path=str(skin_path),
-            uploader=user,
-            width=skin_width,
-            height=skin_height,
-            display_name=display_name,
-            model=model  # Save the model
-        )
-    
-    # Pass the actual skin dimensions to generate_avatar
-    generate_avatar(skin_path, avatar_path, width=skin_width, height=skin_height)
+    # Always create a Texture DB record for the uploader using the base
+    # file_hash (do not append a suffix). The DB no longer enforces
+    # uniqueness on the hash field so multiple users can have entries
+    # pointing to the same physical file.
+    db_hash = file_hash
+
+    texture = await Texture.create(
+        hash=db_hash,
+        path=str(skin_path),
+        uploader=user,
+        width=skin_width,
+        height=skin_height,
+        display_name=display_name,
+        model=model  # Save the model
+    )
+
+    # Generate avatar only if it doesn't exist yet
+    if not avatar_path.exists():
+        generate_avatar(skin_path, avatar_path, width=skin_width, height=skin_height)
 
     return RedirectResponse(url="/manager", status_code=303)
 
@@ -206,14 +225,21 @@ async def delete_skin(texture_id: int, request: Request, user: User = Depends(ge
     # Unset this skin from any players using it by updating the foreign key ID to null
     await Player.filter(skin_texture_id=texture.id).update(skin_texture_id=None)
 
-    # Delete the skin file
-    skin_path = DATA_DIR / "skins" / f"{texture.hash}.png"
-    avatar_path = DATA_DIR / "skins" / f"{texture.hash}_avatar.png"
+    # Delete the skin file only if no other Texture references the same file path
+    skin_path = None
+    try:
+        skin_path = Path(texture.path)
+    except Exception:
+        skin_path = DATA_DIR / "skins" / f"{texture.hash}.png"
 
-    # Delete the physical file
-    if skin_path.exists():
+    avatar_path = skin_path.parent / f"{skin_path.stem}_avatar.png"
+
+    # Check if other textures reference this same file
+    other_refs = await Texture.filter(path=str(skin_path)).exclude(id=texture.id).count()
+
+    # Delete the physical file only when this is the last reference
+    if other_refs == 0 and skin_path.exists():
         skin_path.unlink()
-        # Also delete the avatar if it exists
         if avatar_path.exists():
             avatar_path.unlink()
 

@@ -10,6 +10,7 @@ from . import keystore
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from config import HOST, AUTH_API_PREFIX
+from pathlib import Path
 
 # Define the router with a common base prefix
 router = APIRouter(prefix=AUTH_API_PREFIX, tags=["Yggdrasil"])
@@ -57,7 +58,9 @@ async def get_player_profile_data(uuid: str):
                 skin_metadata['model'] = 'slim'
 
             textures_data["SKIN"] = {
-                "url": f"{BASE_URL}/skins/{player.skin_texture.hash}.png",
+                # Use the actual file stem (from texture.path) so the
+                # client requests the real physical file name on disk.
+                "url": f"{BASE_URL}/skins/{Path(player.skin_texture.path).stem}.png",
                 "metadata": skin_metadata
             }
 

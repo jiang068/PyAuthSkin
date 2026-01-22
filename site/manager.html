@@ -66,7 +66,7 @@
                     {% for skin in skins %}
                     <div class="card-base p-4 relative border-2 border-transparent hover:border-emerald-500/30">
                         <div class="avatar-box aspect-[3/4] mb-4">
-                            <img src="/skins/{{ skin.hash }}_avatar.png" class="w-3/4 h-3/4 object-contain pixelated hover:scale-110 transition-transform duration-500" />
+                            <img src="/skins/{{ skin.avatar_filename }}" class="w-3/4 h-3/4 object-contain pixelated hover:scale-110 transition-transform duration-500" />
                         </div>
                         <div class="px-1 text-center">
                             <h3 class="font-bold text-sm truncate mb-0.5">{{ skin.display_name or 'Unnamed' }}</h3>

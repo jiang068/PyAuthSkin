@@ -94,5 +94,5 @@ enforce-secure-profile=false（建议关闭。防止因自定义验证服务器�
 | **登录方式** | `第三方登录：Authlib Injector 或 LittleSkin` |
 | **认证服务器 (必填)** | `http://127.0.0.1（域名）/api/pyauthskin（确保 API 路径正确）` |
 | **注册链接** | `http://127.0.0.1（域名）/register` |
-| **服务器名称** | 随意填写 |
+| **服务器名称** | `随意填写` |
 ---
