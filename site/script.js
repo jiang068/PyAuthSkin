@@ -2,6 +2,7 @@
  * PyAuthSkin Global Script
  */
 
+// 1. 初始化
 window.tailwind.config = { darkMode: 'class' };
 
 window.toggleTheme = function() {
@@ -9,6 +10,7 @@ window.toggleTheme = function() {
     localStorage.theme = isDark ? 'dark' : 'light';
 };
 
+// 2. 模态框
 let formToSubmit = null;
 window.openDeleteModal = function(formId) {
     formToSubmit = document.getElementById(formId);
@@ -38,20 +40,33 @@ window.closeDeleteModal = function() {
     }, 100);
 };
 
+// 3. PJAX 核心逻辑
 const pjaxContainerId = 'pjax-container';
+const navContentId = 'nav-content'; // 核心容器：导航栏
 
 async function updateDOM(html, url, pushState = true) {
     const container = document.getElementById(pjaxContainerId);
+    const currentNav = document.getElementById(navContentId);
+    
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const newContent = doc.getElementById(pjaxContainerId);
+    const newNav = doc.getElementById(navContentId);
+    
     if (newContent && container) {
+        // 关键点：每次更新页面时，同时同步导航栏内容
+        if (newNav && currentNav) {
+            currentNav.innerHTML = newNav.innerHTML;
+        }
+
         container.innerHTML = newContent.innerHTML;
         document.title = doc.title;
+        
         if (pushState && url !== window.location.href) {
             window.history.pushState({ url }, doc.title, url);
         }
         container.classList.remove('pjax-loading');
     } else {
+        // 降级：如果 PJAX 失败，硬跳转
         window.location.href = url;
     }
 }
@@ -70,9 +85,11 @@ async function loadPage(url, pushState = true) {
     }
 }
 
+// 4. 全局拦截
 document.addEventListener('click', e => {
     const a = e.target.closest('a');
     if (a && a.href && a.origin === window.location.origin) {
+        // 排除退出登录，退出操作必须硬跳转以清理 Session
         if (a.href.includes('/logout') || a.hasAttribute('download') || a.target) return;
         e.preventDefault();
         loadPage(a.href);
@@ -83,8 +100,9 @@ window.onpopstate = () => loadPage(window.location.pathname, false);
 
 document.addEventListener('submit', async e => {
     const f = e.target;
-    const container = document.getElementById(pjaxContainerId);
     const actionUrl = new URL(f.action, window.location.origin);
+    
+    // 如果是同源表单提交
     if (actionUrl.origin === window.location.origin) {
         e.preventDefault();
         try {
@@ -96,11 +114,14 @@ document.addEventListener('submit', async e => {
                 fetchOptions.body = new URLSearchParams(formData);
                 fetchOptions.headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
             }
+
             const res = await fetch(f.action, fetchOptions);
             const html = await res.text();
-            updateDOM(html, res.url, false);
+            // 提交成功后，通过 updateDOM 替换内容和导航栏
+            updateDOM(html, res.url, true);
         } catch (err) {
             console.error("PJAX Error:", err);
+            window.location.reload();
         }
     }
 });
