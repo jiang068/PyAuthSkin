@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,7 +11,7 @@
         tailwind.config = { darkMode: 'class' };
     </script>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900">
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
     <header class="fixed top-0 w-full z-50 header-shell h-16">
         <div class="max-w-6xl mx-auto px-6 h-full flex items-center justify-between">
             <a href="/" class="flex items-center gap-2 group">
@@ -34,7 +33,6 @@
     </header>
 
     <div id="pjax-container" class="pt-24 pb-12">
-        <!-- 自定义删除确认模态框 (放在 pjax 容器内) -->
         <div id="delete-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeDeleteModal()"></div>
             <div class="relative bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl transform scale-95 transition-transform duration-200" id="modal-card">
@@ -53,12 +51,12 @@
         <main class="max-w-6xl mx-auto px-6">
             <header class="mb-12 flex items-end justify-between">
                 <div>
-                    <h2 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Skin Vault</h2>
-                    <p class="text-slate-500">Select and manage your active identity</p>
+                    <h2 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">Profile Manager</h2>
+                    <p class="text-slate-500">Manage your Minecraft profiles and skins</p>
                 </div>
                 <div class="flex items-center gap-4">
                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-slate-200 dark:border-slate-800 px-3 py-1 rounded-full">
-                        {{ skins|length }} Textures
+                        {{ players|length }} Profiles, {{ skins|length }} Skins
                     </div>
                     <a href="/logout" class="text-xs font-bold text-red-500 hover:text-red-600 transition-colors uppercase tracking-wider flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -67,74 +65,119 @@
                 </div>
             </header>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 mb-20">
-                {% for skin in skins %}
-                <div class="card-base p-4 relative border-2 {% if skin.is_active_skin %}border-emerald-500 shadow-xl shadow-emerald-500/10{% else %}border-transparent hover:border-slate-200 dark:hover:border-slate-700{% endif %}">
-                    <div class="avatar-box aspect-[3/4] mb-4 relative group">
-                        <img src="/skins/{{ skin.texture.hash }}_avatar.png" class="w-3/4 h-3/4 object-contain pixelated group-hover:scale-110 transition-transform duration-500" />
-                        {% if skin.is_active_skin %}<div class="absolute top-3 right-3 w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>{% endif %}
-                    </div>
-                    <div class="px-1">
-                        <h3 class="font-bold text-sm truncate text-slate-800 dark:text-slate-200 mb-0.5">{{ skin.display_name }}</h3>
-                        <p class="text-[10px] uppercase font-black text-slate-400 tracking-tighter mb-4 flex items-center gap-1.5">
-                            <span class="{% if skin.is_active_skin %}text-emerald-500 dark:text-emerald-400{% endif %}">
-                                {% if skin.model == 'classic' %}Steve{% elif skin.model == 'slim' %}Alex{% else %}{{ skin.model }}{% endif %}
-                            </span>
-                            <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full"></span>
-                            <span>{{ skin.texture.width }}x</span>
-                        </p>
-                        <div class="flex gap-2">
-                            {% if not skin.is_active_skin %}
-                            <form action="/manager/set_active/{{ skin.id }}" method="post" class="flex-grow">
-                                <button type="submit" class="w-full py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95">Use This</button>
-                            </form>
-                            {% else %}
-                            <div class="flex-grow py-2 bg-emerald-500 text-white text-[10px] font-black uppercase rounded-xl text-center cursor-default">Active</div>
-                            {% endif %}
+            <section class="mb-12">
+                <h3 class="text-2xl font-bold mb-6 text-slate-900 dark:text-white">Your Skins</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    {% for skin in skins %}
+                    <div class="card-base p-4 relative border-2 border-transparent hover:border-slate-200 dark:hover:border-slate-700">
+                        <div class="avatar-box aspect-[3/4] mb-4 relative group">
+                            <img src="/skins/{{ skin.hash }}_avatar.png" class="w-3/4 h-3/4 object-contain pixelated group-hover:scale-110 transition-transform duration-500" />
+                        </div>
+                        <div class="px-1">
+                            <h3 class="font-bold text-sm truncate text-slate-800 dark:text-slate-200 mb-0.5">{{ skin.display_name or 'Unnamed' }}</h3>
+                            <p class="text-[10px] uppercase font-black text-slate-400 tracking-tighter mb-4 flex items-center gap-1.5">
+                                <span>
+                                    {% if skin.model == 'classic' %}Steve{% elif skin.model == 'slim' %}Alex{% else %}{{ skin.model }}{% endif %}
+                                </span>
+                                <span class="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full"></span>
+                                <span>{{ skin.width }}x{{ skin.height }}</span>
+                            </p>
                             <form action="/manager/delete_skin/{{ skin.id }}" method="post" id="delete-form-{{ skin.id }}">
-                                <button type="button" onclick="openDeleteModal('delete-form-{{ skin.id }}')" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                <button type="button" onclick="openDeleteModal('delete-form-{{ skin.id }}')" class="w-full py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-[10px] font-black uppercase rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-95">
+                                    Delete
                                 </button>
                             </form>
                         </div>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
+            </section>
 
-            <section class="max-w-2xl mx-auto card-base p-10 relative overflow-hidden bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 shadow-2xl">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-3xl rounded-full"></div>
-                <h3 class="text-2xl font-bold mb-8 text-slate-900 dark:text-white">Upload New Texture</h3>
-                <form action="/manager/upload" method="post" enctype="multipart/form-data" class="space-y-6">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div>
-                            <label class="label-caps">Display Name</label>
-                            <input type="text" name="display_name" required placeholder="e.g. My Cool Skin" class="input-field">
-                        </div>
-                        <div>
-                            <label class="label-caps">Model Type</label>
-                            <select name="model" class="input-field appearance-none cursor-pointer">
-                                <option value="classic">Steve (Classic / 4px)</option>
-                                <option value="slim">Alex (Slim / 3px)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="label-caps">Skin File (.png)</label>
-                        <div class="relative group">
-                            <input type="file" name="file" accept=".png" required id="skin-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="handleFileSelect(this)" />
-                            <div id="upload-zone" class="py-12 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center group-hover:border-emerald-500 transition-all bg-white dark:bg-slate-900/50">
-                                <div id="upload-icon" class="text-slate-300 group-hover:text-emerald-500 transition-colors mb-3">
-                                    <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                </div>
-                                <span id="upload-text" class="text-sm font-medium text-slate-400">Click or drag skin PNG here</span>
-                                <span id="upload-subtext" class="text-[9px] uppercase font-bold text-slate-300 mt-1 tracking-widest">Supports HD skins (up to 512x)</span>
+            <section class="mb-12">
+                <h3 class="text-2xl font-bold mb-6 text-slate-900 dark:text-white">Your Profiles</h3>
+                <div class="space-y-4">
+                    {% for player in players %}
+                    <div class="card-base p-6">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <h4 class="text-lg font-bold text-slate-900 dark:text-white">{{ player.name }}</h4>
+                                <span class="text-sm text-slate-500 dark:text-slate-400">
+                                    Current Skin: {% if player.skin_texture %}{{ player.skin_texture.display_name or 'Unnamed' }}{% else %}None{% endif %}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <form action="/manager/set_skin_for_player/{{ player.id }}" method="post" class="flex items-center gap-2">
+                                    <select name="skin_id" class="input-field appearance-none cursor-pointer text-sm">
+                                        <option value="">No Skin</option>
+                                        {% for skin in skins %}
+                                        <option value="{{ skin.id }}" {% if player.skin_texture and player.skin_texture.id == skin.id %}selected{% endif %}>{{ skin.display_name or 'Unnamed' }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="py-2 px-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-sm font-black uppercase rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95">
+                                        Update
+                                    </button>
+                                </form>
+                                <form action="/manager/delete_player/{{ player.id }}" method="post">
+                                    <button type="submit" class="py-2 px-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-black uppercase rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-all active:scale-95">
+                                        Delete
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
-                    <button type="submit" class="w-full py-5 btn-base btn-emerald text-sm uppercase tracking-widest shadow-lg shadow-emerald-500/20">Confirm Upload</button>
-                </form>
+                    {% endfor %}
+                </div>
             </section>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                <section>
+                    <h3 class="text-2xl font-bold mb-6 text-slate-900 dark:text-white">Create New Profile</h3>
+                    <div class="card-base p-6">
+                        <form action="/manager/create_player" method="post" class="space-y-4">
+                            <div>
+                                <label class="label-caps text-sm block mb-2">Player Name</label>
+                                <input type="text" name="name" required placeholder="Enter player name" class="input-field" maxlength="255">
+                            </div>
+                            <button type="submit" class="w-full py-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-sm font-black uppercase rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95">
+                                Create Profile
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                <section>
+                    <h3 class="text-2xl font-bold mb-6 text-slate-900 dark:text-white">Upload New Skin</h3>
+                    <div class="card-base p-6">
+                        <form action="/manager/upload_skin" method="post" enctype="multipart/form-data" class="space-y-4">
+                            <div>
+                                <label for="display_name" class="label-caps text-sm block mb-2">Display Name</label>
+                                <input type="text" name="display_name" id="display_name" required placeholder="e.g. My Favorite Skin" class="input-field">
+                            </div>
+                            <div>
+                                <label for="model" class="label-caps text-sm block mb-2">Player Model</label>
+                                <select name="model" id="model" class="input-field appearance-none cursor-pointer">
+                                    <option value="classic">Steve (Classic)</option>
+                                    <option value="slim">Alex (Slim)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="skin_file" class="label-caps text-sm block mb-2">Skin File (.png)</label>
+                                <input type="file" name="skin_file" id="skin_file" required accept="image/png" 
+                                    class="w-full text-sm text-slate-500 dark:text-slate-400
+                                    file:mr-4 file:py-2 file:px-4
+                                    file:rounded-xl file:border-0
+                                    file:text-[10px] file:font-black file:uppercase
+                                    file:bg-emerald-50 file:text-emerald-600
+                                    dark:file:bg-emerald-900/20 dark:file:text-emerald-400
+                                    hover:file:bg-emerald-100 transition-all">
+                            </div>
+                            <button type="submit" class="w-full py-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-sm font-black uppercase rounded-xl hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all active:scale-95">
+                                Upload Skin
+                            </button>
+                        </form>
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
 

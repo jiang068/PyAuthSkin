@@ -5,16 +5,15 @@ import re
 import uuid
 import io
 from typing import Optional
-from pathlib import Path # Add missing import
 
 from fastapi import (APIRouter, Depends, File, Form, Request,
-                     Response, UploadFile)
+                     Response, UploadFile, HTTPException)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from config import BASE_DIR, DATA_DIR
-from .database import User, Texture, UserTexture
+from .database import User, Player, Texture
 from .security import pwd_context
 from .skins_render import generate_avatar
 
@@ -85,8 +84,9 @@ async def register(request: Request, username: str = Form(...), password: str = 
 
     hashed_password = pwd_context.hash(password)
     try:
-        user_uuid = str(uuid.uuid4()).replace('-', '')
-        user = await User.create(username=username, password=hashed_password, uuid=user_uuid)
+        user = await User.create(username=username, password=hashed_password)
+        player_uuid = str(uuid.uuid4()).replace('-', '')
+        player = await Player.create(user=user, name=username, uuid=player_uuid)
         
         request.session["user_id"] = user.id
         return RedirectResponse(url="/manager", status_code=303)
@@ -98,17 +98,18 @@ async def manager(request: Request, user: User = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login")
     
-    # Fetch user skins and prefetch their associated texture (which contains width/height)
-    user_skins = await UserTexture.filter(user=user).prefetch_related('texture')
-    return templates.TemplateResponse("manager.html", {"request": request, "user": user, "skins": user_skins})
+    # Fetch user skins and players
+    skins = await Texture.filter(uploader=user)
+    players = await Player.filter(user=user).prefetch_related('skin_texture')
+    return templates.TemplateResponse("manager.html", {"request": request, "user": user, "skins": skins, "players": players})
 
 
-@router.post("/manager/upload")
+@router.post("/manager/upload_skin")
 async def upload_skin(
     request: Request,
-    file: UploadFile = File(...),
+    skin_file: UploadFile = File(...),
     display_name: str = Form(...),
-    model: str = Form("classic"),
+    model: str = Form("classic"),  # Add model parameter
     user: User = Depends(get_current_user)
 ):
     
@@ -120,12 +121,12 @@ async def upload_skin(
         return templates.TemplateResponse("manager.html", {"request": request, "user": user, "error": "Display name must be between 1 and 50 characters"}, status_code=400)
 
     # File size limit: 1MB
-    contents = await file.read()
+    contents = await skin_file.read()
     if len(contents) > 1024 * 1024:
         return templates.TemplateResponse("manager.html", {"request": request, "user": user, "error": "File size must be less than 1MB"}, status_code=400)
 
     # File type validation
-    if not file.content_type or not file.content_type.startswith("image/png"):
+    if not skin_file.content_type or not skin_file.content_type.startswith("image/png"):
         return templates.TemplateResponse("manager.html", {"request": request, "user": user, "error": "Only PNG files are allowed"}, status_code=400)
     
     # Validate PNG content
@@ -160,64 +161,95 @@ async def upload_skin(
             hash=file_hash,
             path=str(skin_path),
             uploader=user,
-            width=skin_width, # Store actual width
-            height=skin_height # Store actual height
+            width=skin_width,
+            height=skin_height,
+            display_name=display_name,
+            model=model  # Save the model
         )
     
-    await UserTexture.filter(user=user, is_active_skin=True).update(is_active_skin=False)
-    await UserTexture.create(user=user, texture=texture, display_name=display_name, model=model, is_active_skin=True)
-
     # Pass the actual skin dimensions to generate_avatar
     generate_avatar(skin_path, avatar_path, width=skin_width, height=skin_height)
 
     return RedirectResponse(url="/manager", status_code=303)
 
-@router.post("/manager/set_active/{skin_id}")
-async def set_active_skin(skin_id: int, request: Request, user: User = Depends(get_current_user)):
+@router.post("/manager/set_skin_for_player/{player_id}")
+async def set_skin_for_player(player_id: int, request: Request, skin_id: str = Form(...), user: User = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=403)
 
-    await UserTexture.filter(user=user, is_active_skin=True).update(is_active_skin=False)
-    await UserTexture.filter(id=skin_id, user=user).update(is_active_skin=True)
-    
+    player = await Player.filter(id=player_id, user=user).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    if skin_id == "":
+        player.skin_texture = None
+    else:
+        texture = await Texture.filter(id=int(skin_id), uploader=user).first()
+        if not texture:
+            raise HTTPException(status_code=404, detail="Skin not found")
+        player.skin_texture = texture
+
+    await player.save()
     return RedirectResponse(url="/manager", status_code=303)
 
-@router.post("/manager/delete_skin/{skin_id}")
-async def delete_skin(skin_id: int, request: Request, user: User = Depends(get_current_user)):
+    return RedirectResponse(url="/manager", status_code=303)
+
+@router.post("/manager/delete_skin/{texture_id}")
+async def delete_skin(texture_id: int, request: Request, user: User = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=403)
 
-    # Find the UserTexture entry
-    user_texture = await UserTexture.filter(user=user, id=skin_id).first()
-    if not user_texture:
-        raise HTTPException(status_code=404, detail="Skin not found or not owned by user")
+    texture = await Texture.filter(id=texture_id, uploader=user).first()
+    if not texture:
+        return Response(status_code=404)
 
-    # Get the associated Texture object
-    texture = await user_texture.texture
+    # Unset this skin from any players using it by updating the foreign key ID to null
+    await Player.filter(skin_texture_id=texture.id).update(skin_texture_id=None)
 
-    # If this was the active skin, deactivate it (or set a default if available)
-    if user_texture.is_active_skin:
-        # For simplicity, we'll just deactivate it. User will have no active skin.
-        # A more complex system might assign a default skin.
-        pass # No change needed here, as deactivation is handled by setting a new active skin.
+    # Delete the skin file
+    skin_path = DATA_DIR / "skins" / f"{texture.hash}.png"
+    avatar_path = DATA_DIR / "skins" / f"{texture.hash}_avatar.png"
 
-    # Delete the UserTexture entry
-    await user_texture.delete()
+    # Delete the physical file
+    if skin_path.exists():
+        skin_path.unlink()
+        # Also delete the avatar if it exists
+        if avatar_path.exists():
+            avatar_path.unlink()
 
-    # Check if this texture is still used by any other UserTexture entry.
-    # If not, delete the physical file to save space.
-    # We need to explicitly check for other UserTexture entries that reference this specific Texture.
-    other_user_textures_referencing_this_texture = await UserTexture.filter(texture=texture).exists()
-    
-    if not other_user_textures_referencing_this_texture:
-        # No other UserTexture entries are using this Texture, so we can delete the physical file.
-        skin_file_path = Path(texture.path)
-        if skin_file_path.exists():
-            skin_file_path.unlink()
-            # Also delete the avatar if it exists
-            avatar_file_path = skin_file_path.parent / f"{skin_file_path.stem}_avatar.png"
-            if avatar_file_path.exists():
-                avatar_file_path.unlink()
-        await texture.delete() # Delete the Texture entry itself, as it's no longer referenced.
+    await texture.delete()
+    return RedirectResponse(url="/manager", status_code=303)
 
+@router.post("/manager/create_player")
+async def create_player(request: Request, name: str = Form(...), user: User = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=403)
+
+    # Validate name
+    if len(name) < 1 or len(name) > 255:
+        raise HTTPException(status_code=400, detail="Player name must be between 1 and 255 characters")
+
+    # Check if player name already exists for this user
+    existing_player = await Player.filter(user=user, name=name).first()
+    if existing_player:
+        raise HTTPException(status_code=400, detail="Player name already exists")
+
+    # Generate UUID for the player
+    import uuid
+    player_uuid = str(uuid.uuid4()).replace('-', '')
+
+    # Create the player
+    await Player.create(user=user, name=name, uuid=player_uuid)
+    return RedirectResponse(url="/manager", status_code=303)
+
+@router.post("/manager/delete_player/{player_id}")
+async def delete_player(player_id: int, request: Request, user: User = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=403)
+
+    player = await Player.filter(id=player_id, user=user).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    await player.delete()
     return RedirectResponse(url="/manager", status_code=303)

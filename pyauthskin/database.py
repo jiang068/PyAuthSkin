@@ -6,21 +6,21 @@ class User(Model):
     id = fields.IntField(pk=True)
     username = fields.CharField(max_length=255, unique=True)
     password = fields.CharField(max_length=255)
+
+class Player(Model):
+    id = fields.IntField(pk=True)
+    user = fields.ForeignKeyField('models.User', related_name='players')
+    name = fields.CharField(max_length=255)
     uuid = fields.CharField(max_length=255, unique=True)
+    skin_texture = fields.ForeignKeyField('models.Texture', related_name='skin_players', null=True)
+    cape_texture = fields.ForeignKeyField('models.Texture', related_name='cape_players', null=True)
 
 class Texture(Model):
     id = fields.IntField(pk=True)
     hash = fields.CharField(max_length=255, unique=True)
     path = fields.CharField(max_length=255)
-    uploader = fields.ForeignKeyField('models.User', related_name='uploaded_textures', null=True)
+    uploader = fields.ForeignKeyField('models.User', related_name='textures', null=True)
     width = fields.IntField(default=64)
     height = fields.IntField(default=64)
-
-class UserTexture(Model):
-    id = fields.IntField(pk=True)
-    user = fields.ForeignKeyField('models.User', related_name='textures')
-    texture = fields.ForeignKeyField('models.Texture', related_name='users')
-    display_name = fields.CharField(max_length=255)
-    is_active_skin = fields.BooleanField(default=False)
-    is_active_cape = fields.BooleanField(default=False)
+    display_name = fields.CharField(max_length=255, default="")
     model = fields.CharField(max_length=10, default="classic")  # classic or slim

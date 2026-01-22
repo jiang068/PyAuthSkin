@@ -25,7 +25,7 @@ from cryptography.hazmat.backends import default_backend
 import base64
 
 # --- Import from our new package ---
-from pyauthskin.database import User, Texture, UserTexture
+from pyauthskin.database import User, Player, Texture
 from pyauthskin.auth_logic import router as auth_router
 from pyauthskin.skins_render import generate_avatar
 from pyauthskin.security import pwd_context
@@ -44,6 +44,15 @@ from config import BASE_DIR, DATA_DIR, HOST, PORT, AUTH_API_PREFIX, CORS_ALLOWED
 # --- Lifespan manager for startup events ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize Tortoise ORM
+    from tortoise.contrib.fastapi import register_tortoise
+    register_tortoise(
+        app,
+        db_url=f"sqlite://{DATA_DIR / 'database.db'}",
+        modules={"models": ["pyauthskin.database"]},
+        generate_schemas=True,
+        add_exception_handlers=True,
+    )
     generate_and_load_keys()
     yield
 
@@ -95,21 +104,6 @@ app.include_router(web_router)  # For the web interface
 # --- Mount site static files after routers ---
 app.mount("/", StaticFiles(directory=BASE_DIR / "site"), name="site")
 
-# --- Yggdrasil Metadata Endpoint ---
-from config import AUTH_API_PREFIX # Import AUTH_API_PREFIX
-
-@app.get(AUTH_API_PREFIX) # Use the custom prefix for metadata
-async def yggdrasil_meta():
-    return {
-        "meta": {
-            "serverName": "PyAuthSkin",
-            "implementationName": "PyAuthSkin",
-            "implementationVersion": "1.0.0"
-        },
-        "skinDomains": [HOST],
-        "signaturePublickey": keystore.SIGNATURE_PUBLIC_KEY_B64
-    }
-
 # --- Database Registration ---
 register_tortoise(
     app,
@@ -160,8 +154,8 @@ async def http_exception_handler(request: StarletteRequest, exc: StarletteHTTPEx
     if exc.status_code == 404:
         # Access templates from app state
         return request.app.state.templates.TemplateResponse("404.html", {"request": request}, status_code=404)
-    # For other HTTP exceptions, let FastAPI's default handler take over
-    return await request.app.default_exception_handler(request, exc)
+    # For other HTTP exceptions, re-raise to let default handler take over
+    raise exc
 
 
 if __name__ == "__main__":

@@ -2,17 +2,32 @@ import base64
 import time
 import json
 from fastapi import APIRouter, HTTPException, Body
-from .database import User, Texture, UserTexture
+from .database import User, Player, Texture
 from config import BASE_URL # Changed to absolute import
 from .security import pwd_context
 from typing import Dict, Any
 from . import keystore
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-from config import AUTH_API_PREFIX # Import the custom prefix
+from config import HOST, AUTH_API_PREFIX
 
 # Define the router with a common base prefix
 router = APIRouter(prefix=AUTH_API_PREFIX, tags=["Yggdrasil"])
+
+# --- Yggdrasil Metadata Endpoint ---
+# This must match the AUTH_API_PREFIX exactly, without a trailing slash.
+@router.get("")
+async def yggdrasil_meta():
+    """Yggdrasil metadata endpoint."""
+    return {
+        "meta": {
+            "serverName": "PyAuthSkin",
+            "implementationName": "PyAuthSkin",
+            "implementationVersion": "1.0.0"
+        },
+        "skinDomains": [HOST],
+        "signaturePublickey": keystore.SIGNATURE_PUBLIC_KEY_B64
+    }
 
 def sign_data(data: bytes) -> bytes:
     """Signs the given data with the server's private key."""
@@ -25,34 +40,29 @@ def sign_data(data: bytes) -> bytes:
         hashes.SHA1()
     )
 
-async def get_user_profile_data(uuid: str):
+async def get_player_profile_data(uuid: str):
     try:
         # Ensure the UUID format is consistent (no hyphens)
         clean_uuid = uuid.replace('-', '')
-        user = await User.get(uuid=clean_uuid)
-        
-        # Find the user's active skin relation, prefetching the texture object
-        active_skin_relation = await UserTexture.get_or_none(user=user, is_active_skin=True).prefetch_related('texture')
+        player = await Player.get(uuid=clean_uuid).prefetch_related('skin_texture')
         
         textures_data = {}
-        if active_skin_relation:
-            active_skin = active_skin_relation.texture
-            skin_model = active_skin_relation.model # This will be 'classic' or 'slim'
-            
+        if player.skin_texture:
+            skin_model = player.skin_texture.model
             skin_metadata = {}
             if skin_model == 'slim':
                 skin_metadata['model'] = 'slim'
 
             textures_data["SKIN"] = {
-                "url": f"{BASE_URL}/skins/{active_skin.hash}.png", # Update URL path
+                "url": f"{BASE_URL}/skins/{player.skin_texture.hash}.png",
                 "metadata": skin_metadata
             }
 
         # The value of the "textures" property must be a signed JSON string
         profile_textures = {
             "timestamp": int(time.time() * 1000),
-            "profileId": user.uuid,
-            "profileName": user.username,
+            "profileId": player.uuid.replace('-', ''),  # Use unsigned UUID
+            "profileName": player.name,
             "textures": textures_data
         }
         
@@ -63,8 +73,8 @@ async def get_user_profile_data(uuid: str):
         signature = sign_data(textures_json)
         
         return {
-            "id": user.uuid,
-            "name": user.username,
+            "id": player.uuid.replace('-', ''),  # Use unsigned UUID
+            "name": player.name,
             "properties": [{
                 "name": "textures",
                 "value": base64.b64encode(textures_json).decode('utf-8'),
@@ -72,7 +82,7 @@ async def get_user_profile_data(uuid: str):
             }]
         }
     except Exception as e:
-        print(f"Error getting user profile: {e}") # Added for debugging
+        print(f"Error getting player profile: {e}") # Added for debugging
         raise HTTPException(status_code=404, detail="User not found")
 
 @router.post("/authserver/authenticate")
@@ -93,19 +103,21 @@ async def authenticate(data: Dict[str, Any] = Body(...)):
         if not pwd_context.verify(password, user.password):
             raise HTTPException(status_code=403, detail="Invalid credentials")
         
-        # The response must include `availableProfiles` for launchers like PCL2.
-        profile = {
-            "id": user.uuid,
-            "name": user.username
-        }
+        # Get all players for the user
+        players = await Player.filter(user=user)
+        # Format UUIDs without hyphens for Minecraft client (authlib-injector expects unsigned UUIDs)
+        available_profiles = [{"id": p.uuid.replace('-', ''), "name": p.name} for p in players]
+        
+        # Select the first profile as selectedProfile
+        selected_profile = available_profiles[0] if available_profiles else None
         
         return {
             "accessToken": "fake-token-for-now",
             "clientToken": data.get("clientToken"),
-            "availableProfiles": [profile], # Add the list of available profiles
-            "selectedProfile": profile,
+            "availableProfiles": available_profiles,
+            "selectedProfile": selected_profile,
             "user": {
-                "id": user.uuid,
+                "id": user.id,  # User id, not uuid
                 "properties": []
             }
         }
@@ -115,4 +127,43 @@ async def authenticate(data: Dict[str, Any] = Body(...)):
 # Correct the session server path
 @router.get("/sessionserver/session/minecraft/profile/{uuid}")
 async def get_profile(uuid: str):
-    return await get_user_profile_data(uuid)
+    return await get_player_profile_data(uuid)
+
+@router.post("/authserver/refresh")
+async def refresh(data: Dict[str, Any] = Body(...)):
+    # Get the selected profile from the request
+    selected_profile_data = data.get("selectedProfile")
+    access_token = data.get("accessToken")
+    
+    if not access_token:
+        raise HTTPException(status_code=400, detail="accessToken is required")
+    
+    # For now, we assume the user is authenticated via access token
+    # In a real implementation, you'd validate the access token
+    # For simplicity, we'll just return the selected profile if provided
+    
+    response = {
+        "accessToken": "refreshed-fake-token",
+        "clientToken": data.get("clientToken")
+    }
+    
+    if selected_profile_data:
+        # Validate that the selected profile exists and belongs to the user
+        profile_uuid = selected_profile_data.get("id")
+        profile_name = selected_profile_data.get("name")
+        
+        try:
+            # Remove hyphens from UUID if present, then search in database
+            clean_uuid = profile_uuid.replace('-', '')
+            # For now, just check if the profile exists
+            player = await Player.get(uuid=clean_uuid)
+            # Return UUID without hyphens for consistency with authlib-injector
+            response["selectedProfile"] = {
+                "id": player.uuid.replace('-', ''),
+                "name": player.name
+            }
+        except Exception as e:
+            print(f"Error validating profile {profile_name} with UUID {profile_uuid}: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid profile: {profile_name}")
+    
+    return response
